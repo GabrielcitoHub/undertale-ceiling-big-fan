@@ -35,16 +35,18 @@ love.window.setTitle(titles[math.floor(love.math.random() * #titles + 1)])
 love.graphics.setDefaultFilter("nearest", "nearest")
 
 local images = {}
+local imagesdata = {}
 local fonts = {}
 local sounds = {}
 local music = {}
 
 TIME = 0
 
-DEBUG = false
+DEBUG = true
 
 function CLEARCACHE()
 	images = {}
+	imagesdata = {}
 	fonts = {}
 	sounds = {}
 	music = {}
@@ -54,6 +56,7 @@ function ABSIMAGE(path)
 	if images[path] == nil then
 		xpcall(function()
 			images[path] = love.graphics.newImage(path..".png")
+			imagesdata[path] = love.image.newImageData(path..".png")
 		end, function()
 			images[path] = false
 		end)
@@ -64,6 +67,22 @@ end
 function IMAGE(path)
 	return ABSIMAGE("assets/sprites/"..path)
 end
+
+function ABSIMAGEDATA(path)
+	if imagesdata[path] == nil then
+		xpcall(function()
+			imagesdata[path] = love.image.newImageData(path..".png")
+		end, function()
+			imagesdata[path] = false
+		end)
+	end
+	return imagesdata[path]
+end
+
+function IMAGEDATA(path)
+	return ABSIMAGEDATA("assets/sprites/"..path)
+end
+
 
 function FONT(path)
 	if not fonts[path] then

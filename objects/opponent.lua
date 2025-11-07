@@ -20,6 +20,52 @@ return function(name, x, y, img, hp, options) local self = {}
 	self.shuddertimer = 0
 	self.hpbar = nil
 	self.attacked = false
+    self.particles = {}
+    function self:updateParticles()
+        for i = #self.particles, 1, -1 do
+            local p = self.particles[i]
+            p.x = p.x + p.xv
+            p.y = p.y + p.yv
+            p.life = p.life - p.decay
+            if p.life <= 0 then
+                table.remove(self.particles, i)
+            end
+        end
+    end
+    function self:vaporize()
+        local imgData = self.image.getData and self.image:getData() or IMAGEDATA("dummy")
+        local w, h = self.image:getWidth(), self.image:getHeight()
+
+        for x = 1, w, 2 do -- skip pixels for performance
+            for y = 1, h, 2 do
+                local r, g, b, a = imgData:getPixel(x - 1, y - 1)
+                if a > 0 then
+                    local px = self.x + x - w / 2
+                    local py = self.y + y - h
+
+                    -- random slight spread
+                    local angle = math.random() * math.pi * 2
+                    local speed = 0.4 + math.random() * 0.4
+
+                    -- upward-biased movement (Undertale-style float)
+                    local particle = {
+                        x = px,
+                        y = py,
+                        xv = math.cos(angle) * speed * 0.2, -- gentle sideways drift
+                        yv = -math.abs(math.sin(angle)) * speed * 0.6 - 0.5, -- mostly upward
+                        r = r,
+                        g = g,
+                        b = b,
+                        a = a,
+                        life = 1.2 + math.random() * 0.6, -- fades within ~1–2 seconds
+                        decay = 0.02 + math.random() * 0.02 -- how fast alpha fades
+                    }
+
+                    table.insert(self.particles, particle)
+                end
+            end
+        end
+    end
     function self:makeacts(checktext, acts)
         local newchecktext = checktext
         if type(newchecktext) == "string" then
@@ -33,6 +79,9 @@ return function(name, x, y, img, hp, options) local self = {}
         self.acts = acts or {}
     end
     function self:update(battle)
+        if self.killed then
+            self:updateParticles()
+        end
 		if self.hpbar then
 			if self.hpbar:update() == false then
 				self.hpbar = nil
@@ -59,8 +108,14 @@ return function(name, x, y, img, hp, options) local self = {}
             love.graphics.setColor(0.5, 0.5, 0.5)
         end
         if self.killed then
-			love.graphics.print("oh noooo im being vaoprized", self.x, self.y - 50)
-            love.graphics.setColor(1, 0, 0)
+            if self.particles then
+                for _, p in ipairs(self.particles) do
+                    love.graphics.setColor(p.r, p.g, p.b, p.a)
+                    love.graphics.points(p.x,p.y)
+                end
+            end
+			--love.graphics.print("oh noooo im being vaoprized", self.x, self.y - 50)
+            --love.graphics.setColor(1, 0, 0)
         end
         if not self.hidden then love.graphics.draw(self.image, self.x - self.image:getWidth() + self.shudder, self.y - self.image:getHeight() * 2, 0, 2, 2) end
         love.graphics.setColor(1, 1, 1, 1)
@@ -75,9 +130,11 @@ return function(name, x, y, img, hp, options) local self = {}
     end
     function self:kill()
         PLAYSOUND "snd_vaporized.wav"
+        self.hidden = true
         self.canspare = false
         self.killed = true
 		self.hp = 0
+        self:vaporize()
     end
 	function self:damage(num, attacked)
         PLAYSOUND "snd_damage.wav"
