@@ -3,9 +3,9 @@ local controlrightalt
 
 if love.system.getOS() == "Wii" then
 	controlleftalt = {
-		SELECT = "2",
-		CANCEL = "1",
-		MENU = "plus"
+		SELECT = "+",
+		CANCEL = "-",
+		MENU = "home"
 	}
 	controlrightalt = {
 		SELECT = "a",
@@ -17,9 +17,9 @@ if love.system.getOS() == "Wii" then
 		RIGHT = "right",
 		UP = "up",
 		DOWN = "down",
-		SELECT = "z",
-		CANCEL = "x",
-		MENU = "c"
+		SELECT = "2",
+		CANCEL = "1",
+		MENU = "home"
 	}
 else
 	controlleftalt = {
@@ -67,7 +67,9 @@ local music = {}
 
 TIME = 0
 
-DEBUG = false
+DEBUG = true
+
+DT = 0
 
 function CLEARCACHE()
 	images = {}
@@ -77,6 +79,7 @@ function CLEARCACHE()
 	music = {}
 end
 
+---@return love.Image
 function ABSIMAGE(path)
 	if images[path] == nil then
 		xpcall(function()
@@ -89,10 +92,12 @@ function ABSIMAGE(path)
 	return images[path]
 end
 
+---@return love.Image
 function IMAGE(path)
 	return ABSIMAGE("assets/sprites/"..path)
 end
 
+---@return love.ImageData
 function ABSIMAGEDATA(path)
 	if imagesdata[path] == nil then
 		xpcall(function()
@@ -104,11 +109,12 @@ function ABSIMAGEDATA(path)
 	return imagesdata[path]
 end
 
+---@return love.ImageData
 function IMAGEDATA(path)
 	return ABSIMAGEDATA("assets/sprites/"..path)
 end
 
-
+---@return love.Font
 function FONT(path)
 	if not fonts[path] then
 		local data = love.filesystem.read("string", "assets/sprites/"..path..".txt")
@@ -117,6 +123,7 @@ function FONT(path)
 	return fonts[path]
 end
 
+---@return love.Source
 function SOUND(path)
 	if not sounds[path] then
 		sounds[path] = love.audio.newSource("assets/sounds/"..path, "static")
@@ -137,6 +144,7 @@ function STOPSOUND(path)
 	sound:seek(0)
 end
 
+---@return love.Source
 function MUSIC(path)
 	if not music[path] then
 		music[path] = love.audio.newSource("assets/music/"..path, "stream")
@@ -164,6 +172,21 @@ function ISPRESSED(id, joystick)
 	end
 end
 
+function GETKEY(key, from)
+	local replacements = {
+		["return"] = "enter"
+	}
+	local gotKey
+	if not from then
+		gotKey = CONTROLS[key]
+	elseif from == 1 then
+		gotKey = controlleftalt[key]
+	elseif from == 2 then
+		gotKey = controlrightalt[key]
+	end
+	return replacements[gotKey] or gotKey
+end
+
 local scenestack = {}
 
 function SETSCENE(scene)
@@ -171,7 +194,7 @@ function SETSCENE(scene)
 		pressed[key] = ISDOWN(key)
 	end
 	scenestack = {scene}
-	scene:update()
+	scene:update(DT)
 end
 
 function PUSHSCENE(scene)
@@ -179,7 +202,7 @@ function PUSHSCENE(scene)
 		pressed[key] = ISDOWN(key)
 	end
 	scenestack[#scenestack+1] = scene
-	scene:update()
+	scene:update(DT)
 end
 
 function POPSCENE()
@@ -288,7 +311,8 @@ end
 
 local paused = false
 
-function love.update()
+function love.update(dt)
+	DT = dt
 	local scalex = love.graphics.getWidth() / 640
 	local scaley = love.graphics.getHeight() / 480
 	scale = math.min(scalex, scaley)
@@ -296,7 +320,7 @@ function love.update()
 	translatey = scaley / scale * 240 - 240
 	if paused then return end
 	if #scenestack > 0 then
-		scenestack[#scenestack]:update()
+		scenestack[#scenestack]:update(dt)
 	end
 	for key, value in pairs(pressed) do
 		pressed[key] = ISDOWN(key)
