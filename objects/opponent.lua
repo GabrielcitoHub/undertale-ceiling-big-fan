@@ -33,7 +33,7 @@ return function(name, x, y, img, hp, options) local self = {}
         end
     end
     function self:vaporize()
-        local imgData = self.image.getData and self.image:getData() or IMAGEDATA("dummy")
+        local imgData = IMAGEDATA(img) or IMAGEDATA("dummy")
         local w, h = self.image:getWidth(), self.image:getHeight()
 
         for x = 1, w, 2 do -- skip pixels for performance
