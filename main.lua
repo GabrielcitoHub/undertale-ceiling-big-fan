@@ -252,14 +252,16 @@ function GETKEY(key, from)
 		if not from then
 			gotKey = BUTTONS:getID(key)
 		else
-			return false
+			return
 		end
 	else
 		if not from then
 			gotKey = CONTROLS[key]
 		elseif from == 1 then
+			if not controlleftalt then return end
 			gotKey = controlleftalt[key]
 		elseif from == 2 then
+			if not controlrightalt then return end
 			gotKey = controlrightalt[key]
 		end
 	end
@@ -312,32 +314,6 @@ local programargs
 
 local mounted
 
-function LOADMOD(path)
-	TIME = 0
-	love.audio.stop()
-	if type(path) == "boolean" then
-		CLEARCACHE()
-	end
-	scenestack = {}
-	if path ~= nil then
-		if mounted and path ~= true then
-			love.filesystem.unmount(mounted)
-		end
-		if type(path) == "string" then
-			love.filesystem.mount(path, "assets", false)
-			mounted = path
-		end
-	end
-	for key, value in pairs(package.loaded) do
-		package.loaded[key] = nil
-	end
-end
-
-function RELOAD(path)
-	LOADMOD(path)
-	love.load(programargs)
-end
-
 local function exists(file)
 	local ok, err, code = os.rename(file, file)
 	if not ok then
@@ -351,6 +327,7 @@ end
 
 --- Check if a directory exists in this path
 local function isdir(path)
+	if not path then return end
 	-- "/" works on both Unix and Windows
 	return exists(path.."/")
 end
@@ -366,10 +343,40 @@ local function copytotemp(from, to)
 	return love.filesystem.write(to, contents)
 end
 
+function LOADMOD(path)
+	TIME = 0
+	love.audio.stop()
+	if type(path) == "boolean" then
+		CLEARCACHE()
+	end
+	scenestack = {}
+	if path ~= nil then
+		if not isdir(path) then
+			if mounted and path ~= true then
+				love.filesystem.unmount(mounted)
+			end
+			if type(path) == "string" then
+				love.filesystem.mount(path, "assets", false)
+				mounted = path
+			end
+		else
+		end
+	end
+	for key, value in pairs(package.loaded) do
+		package.loaded[key] = nil
+	end
+end
+
+function RELOAD(path)
+	LOADMOD(path)
+	love.load(programargs)
+end
+
 local loadfromarg = false
 
 function love.load(args)
 	love.filesystem.createDirectory("mods")
+	love.filesystem.mount(love.filesystem.getSourceBaseDirectory(), "mods", true)
 	local path = args[1]
 	if path and not loadfromarg then
 		print("Mod path provided")
@@ -426,8 +433,8 @@ function love.draw()
 	if DEBUG and scenestack[#scenestack].debugdraw then
 		scenestack[#scenestack]:debugdraw()
 	end
-	BUTTONS:draw()
 	love.graphics.setScissor()
+	BUTTONS:draw()
 	love.graphics.origin()
 	if paused then
 		love.graphics.scale(2, 2)
