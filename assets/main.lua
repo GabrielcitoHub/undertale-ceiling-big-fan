@@ -1,8 +1,10 @@
+local Soul = require "objects.soul"
+local soul = Soul()
 local scripts
 local files
 local option = 1
 local debugoptions = 0
-local minopiton = 1
+local minoption = 1
 local translatey = 0
 local brightnesstimer = 0
 local updater = require "objects.updater" ()
@@ -19,6 +21,26 @@ local function loadDebugFilesFromPath(path)
         end
     end
 end
+-- Function to list and load mods from a given path
+local function loadModsFromPath(files, modsPath)
+    local command
+
+    if PLATFORM == "Windows" then
+        command = 'dir "' .. modsPath .. '" /b /ad'
+    else
+        command = 'ls -1 "' .. modsPath .. '"'
+    end
+
+    local p = io.popen(command)
+    if p then
+        for entry in p:lines() do
+            table.insert(files, entry)
+        end
+        p:close()
+    else
+        print("Could not open mods directory: ", modsPath)
+    end
+end
 local function reloadFiles()
     CLEARCACHE()
     scripts = {}
@@ -26,14 +48,16 @@ local function reloadFiles()
     loadDebugFilesFromPath("assets/scripts")
     debugoptions = #scripts
     files = love.filesystem.getDirectoryItems("mods")
+    local basePath = love.filesystem.getSourceBaseDirectory() .. "/mods/"
+    --loadModsFromPath(files, basePath)
     for index, value in ipairs(files) do
         scripts[#scripts+1] = value
     end
     if option > #scripts then
         option = #scripts
     end
-    if option < minopiton then
-        option = minopiton
+    if option < minoption then
+        option = minoption
     end
 end
 local function showBoldText(text, x, y)
@@ -56,13 +80,15 @@ end
 SETSCENE({
     focus = reloadFiles,
     update = function(self)
+        soul.x = 32
+        soul.y = option * 30 - 4
         if DEBUG then
-            minopiton = 1
+            minoption = 1
         else
-            minopiton = 1 + debugoptions
+            minoption = 1 + debugoptions
         end
-        if option < minopiton then
-            option = minopiton
+        if option < minoption then
+            option = minoption
         end
         translatey = translatey + ((option * -30 + 275 + 30) - translatey) / 10
         if brightnesstimer < 50 then
@@ -76,7 +102,7 @@ SETSCENE({
                 os.execute('xdg-open "'..love.filesystem.getSaveDirectory().."/mods"..'"')
             end
         end
-        if #scripts - minopiton + 1 == 0 then
+        if #scripts - minoption + 1 == 0 then
             return
         end
         local oldimg = ABSIMAGE("mods/"..scripts[option].."/preview")
@@ -84,13 +110,13 @@ SETSCENE({
             PLAYSOUND "snd_squeak.wav"
             option = option + 1
             if option > #scripts then
-                option = minopiton
+                option = minoption
             end
         end
         if ISPRESSED "UP" then
             PLAYSOUND "snd_squeak.wav"
             option = option - 1
-            if option < minopiton then
+            if option < minoption then
                 option = #scripts
             end
         end
@@ -99,7 +125,7 @@ SETSCENE({
             love.graphics.setFont(FONT "fnt_karma_big")
             love.graphics.print("Loading...", 5, love.graphics:getHeight() - 20)
             love.graphics.present()
-            if option <= debugoptions then               
+            if option <= debugoptions then
                 local scene
                 local optionName = scripts[option]
                 print(optionName)
@@ -138,7 +164,7 @@ SETSCENE({
         love.graphics.setFont(FONT "fnt_default_big")
         love.graphics.translate(0, translatey)
         local listempty = true
-        for index = minopiton, #scripts do
+        for index = minoption, #scripts do
             listempty = false
             local value = scripts[index]
             local opacity = 1
@@ -159,7 +185,7 @@ SETSCENE({
             end
             if index == option then
                 love.graphics.setColor(1, 0, 0)
-                love.graphics.draw(IMAGE "soul", 30, -13 + index * 30)
+                soul:draw()
                 love.graphics.setColor(1, 1, 0)
             else
                 love.graphics.setColor(1, 1, 1, opacity)
@@ -168,7 +194,7 @@ SETSCENE({
         end
         if listempty then
             love.graphics.setColor(1, 1, 1, 0.3)
-            love.graphics.print("- No mods installed -\n- Press" .. string.upper(GETKEY "SELECT") .. "to open folder -", 60, 120)
+            love.graphics.print("- No mods installed -\n- Press " .. string.upper(GETKEY "MENU") .. " to open folder -", 60, 120)
             option = 2
         end
         love.graphics.translate(0, -translatey)
