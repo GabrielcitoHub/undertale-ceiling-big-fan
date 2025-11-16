@@ -21,6 +21,7 @@ return function(x, y, maxhp, iframes) local self = {}
 	self.at = 10
 	self.df = 10
 	self.fleetimer = 0
+	self.speed = 2
 	local shards = {}
 	function self:setlove(val)
 		self.love = val
@@ -40,9 +41,9 @@ return function(x, y, maxhp, iframes) local self = {}
 		self.df = 10 + math.floor((self.love - 1) / 4)
 	end
 	function self:update()
-		local speed = 2
+		local speed = self.speed
 		if ISDOWN "CANCEL" then
-			speed = 1
+			speed = speed/2
 		end
 		if self.hp <= 0 then
 			self:deathsequence()
