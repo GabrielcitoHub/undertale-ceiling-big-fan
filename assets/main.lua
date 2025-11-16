@@ -44,6 +44,7 @@ end
 local function reloadFiles()
     CLEARCACHE()
     scripts = {}
+    loadDebugFilesFromPath("assets/editors")
     loadDebugFilesFromPath("assets/scenes")
     loadDebugFilesFromPath("assets/scripts")
     debugoptions = #scripts
@@ -79,7 +80,7 @@ if #files == 0 then
 end
 SETSCENE({
     focus = reloadFiles,
-    update = function(self)
+    update = function(self, dt)
         soul.x = 32
         soul.y = option * 30 - 4
         if DEBUG then
@@ -133,7 +134,7 @@ SETSCENE({
                     optionName = optionName:sub(2)
                     print(optionName)
                 end
-                if optionName:sub(1,13) == "assets.scenes" then
+                if optionName:sub(1,13) == "assets.scenes" or optionName:sub(1,14) == "assets.editors" then
                     scene = require(optionName) ()
                 elseif optionName:sub(1,14) == "assets.scripts" then
                     scene = require("assets.scenes.battle") ()
@@ -148,6 +149,7 @@ SETSCENE({
         if newimg ~= oldimg then
             brightnesstimer = 0
         end
+        updater:update(dt)
     end,
     draw = function(self)
         love.graphics.setColor(brightnesstimer/100, brightnesstimer/100, brightnesstimer/100)
