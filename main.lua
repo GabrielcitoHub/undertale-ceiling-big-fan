@@ -3,6 +3,7 @@ local controlrightalt
 PLATFORM = love.system.getOS()
 VERSION = 1
 BUTTONS = require "objects.button" ()
+EXITLIB = require "objects.exit" ()
 --PLATFORM = "Wii"
 --PLATFORM = "Android"
 
@@ -421,6 +422,7 @@ function love.update(dt)
 		pressed[key] = ISDOWN(key)
 	end
 	TIME = TIME + 1
+	EXITLIB:update(dt)
 end
 
 function love.draw()
@@ -433,6 +435,7 @@ function love.draw()
 	if DEBUG and scenestack[#scenestack].debugdraw then
 		scenestack[#scenestack]:debugdraw()
 	end
+	EXITLIB:draw()
 	love.graphics.setScissor()
 	BUTTONS:draw()
 	love.graphics.origin()
@@ -445,7 +448,6 @@ function love.draw()
 		love.graphics.print("PAUSED", 6, 6)
 		love.graphics.setColor(1, 1, 1)
 	end
-	
 end
 
 function love.focus()
