@@ -7,6 +7,8 @@ return function() local self = {}
     self.soulname = require "objects.soulname" (self.soul, 30, 400)
     self.dialogue = require "objects.dialogue" (nil, "fnt_default_big", 52, 272)
     self.hpmeter = require "objects.healthmeter" (275, 400, nil, nil, self.soul)
+    self.items = require "objects.items" ()
+    self.debug = require "objects.debug" ()
     self.battlebg = require "objects.image" (IMAGE "battle_bg", 15, 9)
     self.fightbar = nil
     self.opponent = nil
@@ -23,16 +25,15 @@ return function() local self = {}
     self.wintext = "* YOU WON!"
     self.battleisover = false
     self.activeItems = {}
+    local scene = self
     local time = 0
-    local steptime = 0
     local attackid = 0
     local queuetime = 0
     local attackmode = false
-    local step = false
     local attackIDS = {}
 
     if DEBUG then
-        self.items = {
+        local items = {
             TESTITEM = {
                 onclick = function()
                     PLAYSOUND "snd_hurt1.wav"
@@ -55,12 +56,16 @@ return function() local self = {}
                 end,
             },
             ACID = {
-                onclick = function()
+                onclick = function(item)
                     PLAYSOUND "snd_heal_c.wav"
                     self.soul.hp = self.soul.maxhp
                 end,
-                step = function(dt,state)
-                    print(state)
+                consume = function(item)
+                    item.enabled = false
+                    return false
+                end,
+                step = function()
+                    local state = scene:getState()
                     if state == "menu" then
                         if self.soul.hp > 0 then
                             PLAYSOUND "snd_hurt1.wav"
@@ -89,6 +94,9 @@ return function() local self = {}
                 end
             }
         }
+        for _ = 1,4 do
+            self.items:addItems(items)
+        end
     end
     function self:getState()
         if not self.soulislocked then
@@ -107,22 +115,7 @@ return function() local self = {}
             return "menu"
         end
     end
-    function self:updatestep(dt)
-        steptime = steptime + 10 * dt
-        if steptime > 10 then
-            steptime = 0
-            step = true
-        elseif steptime > 0 then
-            step = false
-        end
-    end
-    function self:updateitems(dt)
-        for i, item in ipairs(self.activeItems) do
-            if item.step and step then
-                item.step(dt,self:getState())
-            end
-        end
-    end
+    
     function self:onenemyturn(turncount)
         self:endattack("* Smells like flavor text")
     end
@@ -237,26 +230,13 @@ return function() local self = {}
         self:makebutton(345, 432, "item_button", "item_button_selected", nil, nil, function ()
             if self.items then
                 local itemsChoices = {}
-                for name, item in pairs(self.items) do
+                for i, item in pairs(self.items:getItems(true)) do
+                    local name = item.name
                     local itemDialogue = {
                         menu = "item",
                         text = "* " .. name,
                         onclick = function()
-                            if item.onclick then
-                                if item:onclick() ~= false then
-                                    self:endturn()
-                                end
-                            else
-                                self:endturn()
-                            end
-                            if item.consume then
-                                if item:consume() ~= false then
-                                    self.items[name] = nil
-                                end
-                            else
-                                self.items[name] = nil
-                            end
-                            table.insert(self.activeItems, item)
+                            item:use()
                         end
                     }
                     table.insert(itemsChoices, #itemsChoices+1, itemDialogue)
@@ -310,6 +290,11 @@ return function() local self = {}
             }, self.soul)
         end)
     end
+    function self.items:used(item)
+    end
+    function self.items:clicked(item)
+        scene:endturn()
+    end
     function self:setmusic(mus)
         self.music:stop()
         self.music = MUSIC(mus)
@@ -320,8 +305,7 @@ return function() local self = {}
     self.music:setLooping(true)
     function self:onupdate() end
     function self:update(dt)
-        self:updatestep(dt)
-        self:updateitems(dt)
+        self.items:update(dt)
         if self.soul.hp <= 0 then
             self.soul:update()
             return
@@ -408,6 +392,14 @@ return function() local self = {}
             end
         end
         self:onupdate()
+        self.debug:update(dt)
+    end
+    function self.items:stepped()
+        for _, item in ipairs(self.items) do
+            if item.active and item.object and item.object.step then
+                item.object:step(scene:getState())
+            end
+        end
     end
     function self:draw()
         if self.soul.hp <= 0 then
@@ -435,6 +427,7 @@ return function() local self = {}
         for index, value in pairs(self.attacks) do
             value:draw(self)
         end
+        self.debug:draw()
     end
     function self:debugdraw()
         love.graphics.outline(self.box, {1, 1, 1})
@@ -470,8 +463,9 @@ return function() local self = {}
         love.graphics.print("Mouse: "..(MOUSEX())..", "..(MOUSEY()), 0, 48)
         love.graphics.print("Attack: "..tostring(attackmode), 0, 64)
         love.graphics.print("Box resizing: "..tostring(self.box.resizing), 0, 64+16)
-        love.graphics.print("StepTime: "..steptime, 0, 64+32)
-        love.graphics.print("State: "..self:getState(), 0, 64+32+16)
+        love.graphics.print("StepTime: "..self.items.step.steptime, 0, 64+32)
+        love.graphics.print("Step: "..tostring(self.items.step.step), 0, 64+32+16)
+        love.graphics.print("State: "..self:getState(), 0, 64+64)
     end
     local Attack = require "objects.attack"
     function self:makebullet(options)
