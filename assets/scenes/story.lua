@@ -67,13 +67,13 @@ return function()
     end
 
     function self:onStoryEnd(skipped)
-        self.sound:stop()
         local scene = require("assets.scenes.intro") ()
         SETSCENE(scene)
     end
 
     function self:update(dt)
         if ISPRESSED "SELECT" then
+            self.sound:stop()
             self:onStoryEnd(true)
             return
         end
@@ -110,6 +110,7 @@ return function()
         -- Auto-end when music ends
         local len = self.sound:getDuration()
         if t >= len - 0.05 then
+            self.sound:stop()
             self:onStoryEnd(false)
             return
         end
