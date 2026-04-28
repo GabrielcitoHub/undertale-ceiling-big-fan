@@ -1,8 +1,10 @@
 return function() local self = {}
-    self.character = require "objects.character"
-    local char = self.character()
-    char.canrun = true
-    self.characters = {char}
+    function self:load()
+        self.character = require "objects.character"
+        local char = self.character()
+        char.canrun = true
+        self.characters = {char}
+    end
     function self:update(dt)
         if ISPRESSED "CANCEL" then
             if DEBUG then

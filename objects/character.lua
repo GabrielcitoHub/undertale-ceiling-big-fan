@@ -21,6 +21,7 @@ return function(x, y, soul, sprite) local self = {}
     self.cutscene = false
     self.stopframe = 2
     function self:updatemovement(dt)
+        -- movement speed handling
         if self.canrun then
             if ISDOWN "CANCEL" then
                 self.speed = self.runspeed
@@ -30,21 +31,26 @@ return function(x, y, soul, sprite) local self = {}
         else
             self.speed = self.walkspeed
         end
+
         local speed = self.speed * self.scale * 30
-        if ISDOWN "LEFT" then
-			self.x = self.x - speed * dt
-		end
-		if ISDOWN "RIGHT" then
-			self.x = self.x + speed * dt
-            
-		end
-		if ISDOWN "UP" then
-			self.y = self.y - speed * dt
-            
-		end
-		if ISDOWN "DOWN" then
-			self.y = self.y + speed * dt
-		end
+
+        -- movement direction
+        local dx, dy = 0, 0
+
+        if ISDOWN "LEFT"  then dx = dx - 1 end
+        if ISDOWN "RIGHT" then dx = dx + 1 end
+        if ISDOWN "UP"    then dy = dy - 1 end
+        if ISDOWN "DOWN"  then dy = dy + 1 end
+
+        -- normalize diagonal movement
+        if dx ~= 0 or dy ~= 0 then
+            local len = math.sqrt(dx*dx + dy*dy)
+            dx, dy = dx / len, dy / len
+        end
+
+        -- apply movement
+        self.x = self.x + dx * speed * dt
+        self.y = self.y + dy * speed * dt
     end
     function self:updateanimations()
         self.animspeed = self.speed / 6

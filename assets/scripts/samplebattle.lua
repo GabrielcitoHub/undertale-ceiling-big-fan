@@ -27,6 +27,15 @@ return function(self)
             end)
         end)
     end
+    function self:onBattleEnd()
+        print("WON!")
+        local dialogue = {
+            "You fought against a dummy lol",
+            ""
+        }
+        local ending = require "assets.scenes.ending" (dialogue)
+        SETSCENE(ending)
+    end
 	-- starting dialogue
     self.dialogue:settext("* You encountered the Dummy.")
 	-- define the opponent

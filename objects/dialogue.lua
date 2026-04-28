@@ -238,7 +238,10 @@ return function(text, font, x, y, sound, texteffect) local self = {}
 	end
 	function self:setpotrait(face)
 		face = face or "normal"
-		local facepath = "faces/"..self.speaker.."/"..face
+		local speaker = self.speaker
+		if not speaker then return end
+
+		local facepath = "faces/" .. speaker .. "/" .. face
 		self.potrait = IMAGE(facepath)
 	end
 return self end

@@ -7,7 +7,6 @@ return function()
 
     -- Story music
     self.sound = MUSIC("story.ogg")
-    self.sound:play()
 
     -------------------------------------------------------------
     -- TIMELINE (Option A)
@@ -71,8 +70,12 @@ return function()
         SETSCENE(scene)
     end
 
+    function self:load()
+        self.sound:play()
+    end
+
     function self:update(dt)
-        if ISPRESSED "SELECT" then
+        if ISPRESSED "SELECT" and not self.ignoreinput then
             self.sound:stop()
             self:onStoryEnd(true)
             return
@@ -109,7 +112,7 @@ return function()
 
         -- Auto-end when music ends
         local len = self.sound:getDuration()
-        if t >= len - 0.05 then
+        if t >= len - 0.05 and not self.ignoreinput then
             self.sound:stop()
             self:onStoryEnd(false)
             return

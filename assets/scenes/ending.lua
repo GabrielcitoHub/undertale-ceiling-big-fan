@@ -1,56 +1,79 @@
 return function(endingtext,intro) local self = {}
-    self.dialogue = require "objects.dialogue" (nil, "fnt_default_big", 52, 272, "SND_TXT1.wav")
-    self.dialoguebox = require "objects.dialoguebox" (32, 250, 576, 140)
+    local offset_y = 40
+    self.dialogue = require "objects.dialogue" (nil, "fnt_default_big", 52, 272 + offset_y, "SND_TXT1.wav")
+    self.dialoguebox = require "objects.dialoguebox" (32, 250 + offset_y, 576, 140)
     self.queue = require "objects.queue" ()
     self.dialoguetext = {}
+
     function self:nextdialogue()
         local text = table.remove(self.dialoguetext, 1)
-        if type(text) == "table" then
-            local func = text[2]
-            text = text[1]
-            if func then func() end
-        end
+        print(text)
+
         if text == "" or text == nil then
             self.dialoguebox.hidden = true
         else
             self.dialoguebox.hidden = false
         end
-        if text then self.dialogue:settext(text) end
+
+        -- Set first table value to the dialogue current text
+        local dialogue = text
+        if type(text) == "table" then
+            dialogue = text[1]
+        end
+        
+        if dialogue then self.dialogue:settext(dialogue) end
+
+        -- Run the second table balue function and give self as the first parameter
+        if type(text) == "table" then
+            local func = text[2]
+            text = text[1]
+            if func then func(self) end
+        end
     end
+
     function self:endturn(dialogue)
         self.dialogue:settext("")
         self.dialoguetext = {unpack(dialogue or {})}
         self:nextdialogue()
     end
+
     function self:onupdate(dt) end
+
     function self:update(dt)
         self.dialogue:update()
         self.queue:update(dt)
+
         if ISPRESSED "CANCEL" then
             if DEBUG and self.dialogue.text == self.dialogue.targettext then
                 RELOAD()
             end
         end
+            
         if ISPRESSED "SELECT" and self.dialogue.text == self.dialogue.targettext then
             self:nextdialogue()
         end
+
         self:onupdate(dt)
     end
+
     function self:draw()
         self.dialoguebox:draw()
         self.dialogue:draw()
     end
+
     function self:addDialogue(dialogue, text, potrait)
         local dialoguetext = {text, function() self.dialogue:setpotrait(potrait) end}
         table.insert(dialogue,dialoguetext)
     end
+
     local dialogue = endingtext or {}
-    if not intro or intro == true then
+    if intro == true then
         table.insert(dialogue,"* (Ring Ring...)")
         table.insert(dialogue,{"* Hello? is anyone there?",function() self.dialogue:setspeaker("sans") end})
         self:addDialogue(dialogue,"* Welp, i guess i'll leave a\n  message","chuckle")
         table.insert(dialogue,{"",function() MUSIC("z_ending.ogg"):play() MUSIC("z_ending.ogg"):setLooping(true) end})
     end
+    
     if not endingtext then
         if love.math.random(1,100) == 1 then
             table.insert(dialogue, "* Thanks for playing my little Undertale fan game!")

@@ -1,12 +1,13 @@
 return function() local self = {}
     self.prints = {}
     function self:print(...)
+        local i = 1
         local msg = tostring(...)
         local printdata = {
             text = msg,
             duration = 2 + (0.5 * #self.prints)
         }
-        table.insert(self.prints,printdata)
+        table.insert(self.prints,i,printdata)
     end
     function self:update(dt)
         local removemsgs = {}

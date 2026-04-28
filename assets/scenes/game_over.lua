@@ -1,9 +1,12 @@
 return function(soul) local self = {}
-    self.soul = soul
+    self.souls = {soul}
+    self.soul = self.souls[1]
 	self.name = "Chara"
+
 	if self.soul then
 		self.name = self.soul.name
 	end
+
     self.fade = 0
     self.timer = 0
     self.fadeout = false
@@ -14,11 +17,14 @@ return function(soul) local self = {}
     self.music:play()
     self.music:setLooping(true)
 	self.message = 0
-    function self:update()
-        self.timer = self.timer + 1
+
+    function self:update(dt)
+        local old_t = self.timer
+        self.timer = self.timer + (1 * 60) * dt
+
         if self.fadeout then
             if self.fade > 0 then
-                self.fade = self.fade - 0.015
+                self.fade = self.fade - (0.015 * 60) * dt
                 self.music:setVolume(self.fade)
             else
                 RELOAD()
@@ -30,10 +36,12 @@ return function(soul) local self = {}
                 self.fade = 1
             end
         end
-        if self.timer == 60 then
+
+        if old_t < 60 and self.timer >= 60 then
 			self.message = 1
             self.dialogue:settext("You cannot give\nup just yet...", true)
         end
+
         if ISPRESSED "SELECT" and self.dialogue.text == self.dialogue.targettext then
 			if self.message == 1 then
 				self.message = 2
@@ -45,20 +53,30 @@ return function(soul) local self = {}
             	self.timer = 999
 			end
         end
-        if self.soul then
-            self.soul:update()
+
+        for i, soul in ipairs(self.souls) do
+            if soul then
+                soul:update(dt)
+            end
         end
+
         self.dialogue:update()
     end
+
     function self:draw()
         love.graphics.setColor(self.fade, self.fade, self.fade)
         love.graphics.draw(IMAGE "game_over", 320 - IMAGE "game_over":getWidth() / 2, 50)
         love.graphics.setColor(1, 1, 1)
-        if self.soul then
-            self.soul:draw()
+
+        for i, soul in ipairs(self.souls) do
+            if soul then
+                soul:draw()
+            end
         end
+
         self.dialogue:draw()
     end
+
 	function self:debugdraw()
 		love.graphics.setFont(FONT "fnt_default")
 		love.graphics.print("Message "..self.message.."\nTimer: "..self.timer.."\nFadeout: "..tostring(self.fadeout))

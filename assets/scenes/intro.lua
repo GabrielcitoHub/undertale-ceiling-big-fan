@@ -108,7 +108,6 @@ return function(savedata) local self = {}
         end
     end
     self.grid = createLettersGrid(self.inputletters)
-    PLAYSOUND "mus_intronoise.ogg"
     local function getMusic(num)
         return MUSIC("menu" .. tostring(num) .. ".ogg")
     end
@@ -199,6 +198,10 @@ return function(savedata) local self = {}
 
     function self:onConfirm(name)
         RELOAD()
+    end
+
+    function self:load()
+        PLAYSOUND "mus_intronoise.ogg"
     end
    
     function self:update(dt)

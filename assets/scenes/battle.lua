@@ -1,30 +1,116 @@
 return function() local self = {}
     local Fightbar = require "objects.fightbar"
+    local Attack = require "objects.attack"
+
     self.turns = 0
     self.music = MUSIC "mus_prebattle1.ogg"
     self.box = require "objects.battlebox" (32, 250, 576, 140)
-    self.soul = self.box:makesoul()
+
+    --[[ local soul2 = self.box:makesoul()
+    soul2.color = {0, 0, 1} ]]
+
+    self.souls = {self.box:makesoul()}
+    self.unloadedSouls = {}
+    self.soulsActions = {}
+
+    for i = 1, 49 do
+        local rngSoul = self.box:makesoul()
+        rngSoul.color = {love.math.random(1,100) / 100, love.math.random(1,100) / 100, love.math.random(1,100) / 100}
+        table.insert(self.souls, rngSoul)
+    end
+
+    self.soul = self.souls[1]
+
+    function self:forSouls(func)
+        local souls = self.souls
+        if not souls then return end
+
+        local removeSouls = {}
+        for i,soul in ipairs(souls) do
+            if soul.unloaded then
+                table.insert(removeSouls, {index = i, soul = soul})
+            end
+
+            func(soul, i)
+        end
+
+        if removeSouls then
+            local removed = 0
+            for i, soulData in pairs(removeSouls) do
+                local i = soulData.index
+                local soul = soulData.soul
+                table.insert(self.unloadedSouls, table.remove(self.souls, i - removed))
+                removed = removed + 1
+            end
+        end
+    end
+
+    function self:queueSoulsAction(func)
+        table.insert(self.soulsActions, func)
+    end
+
+    function self:runQueueActions(i, soul)
+        for _, func in pairs(self.soulsActions) do
+            func(i,soul)
+        end
+    end
+
+    function self:clearQueueActions()
+        self.soulsActions = {}
+    end
+
     self.soulname = require "objects.soulname" (self.soul, 30, 400)
     self.dialogue = require "objects.dialogue" (nil, "fnt_default_big", 52, 272)
-    self.hpmeter = require "objects.healthmeter" (275, 400, nil, nil, self.soul)
+
+    self.healthmeters = {}
+    self.healthpositions = {
+        275,
+        475,
+    }
+    self:forSouls(function(soul, i)
+        local healthmeter = require "objects.healthmeter" (self.healthpositions[i], 400, nil, nil, soul)
+        table.insert(self.healthmeters, healthmeter)
+    end)
+
+    self.healthmeter = self.healthmeters[1]
+    self.hpmeter = self.healthmeter
+
     self.items = require "objects.items" ()
     self.debug = require "objects.debug" ()
     self.battlebg = require "objects.image" (IMAGE "battle_bg", 15, 9)
     self.fightbar = nil
     self.opponent = nil
     self.opponents = {}
-    self.soulisactive = true
-    self.soulislocked = true
+
+    self:forSouls(function(soul)
+        soul.active = true
+        soul.locked = true
+        soul.can_gameover = false
+        -- soul.can_flee = false
+    end)
+
     self.attacks = {}
     self.buttons = {}
     self.events = {}
     self.dialoguetext = {}
-    self.snaptobuttons = true
-    self.selectedbutton = 1
+
+    self.snaptobuttons = {}
+    self:forSouls(function()
+        table.insert(self.snaptobuttons, true)
+    end)
+
+    self.selectedbuttons = {}
+    self:forSouls(function()
+        table.insert(self.selectedbuttons, 1)
+    end)
+
+    self.selectedbutton = self.selectedbuttons[1]
+
     self.endingturn = false
     self.wintext = "* YOU WON!"
     self.battleisover = false
     self.activeItems = {}
+
     local scene = self
     local time = 0
     local attackid = 0
@@ -38,12 +124,15 @@ return function() local self = {}
                 onclick = function()
                     PLAYSOUND "snd_hurt1.wav"
                     self.soul.hp = self.soul.hp - 1
+
                     return false
                 end,
+
                 consume = function()
                     return false
                 end
             },
+
             HEALITEM = {
                 onclick = function()
                     PLAYSOUND "snd_heal_c.wav"
@@ -52,18 +141,23 @@ return function() local self = {}
                         "* Tastes like debug code...",
                         "* Some health was recovered."
                     })
+
                     return false
                 end,
             },
+
             ACID = {
                 onclick = function(item)
                     PLAYSOUND "snd_heal_c.wav"
                     self.soul.hp = self.soul.maxhp
                 end,
+
                 consume = function(item)
                     item.enabled = false
+
                     return false
                 end,
+
                 step = function()
                     local state = scene:getState()
                     if state == "menu" then
@@ -78,6 +172,7 @@ return function() local self = {}
                 consumeitem = true,
                 onclick = function()
                     PLAYSOUND "snd_laz.wav"
+
                     for i,opp in pairs(self.opponents) do
                         if opp.hp < 10 then
                             opp.hp = opp.hp - 10
@@ -87,19 +182,23 @@ return function() local self = {}
                             self.consumeitem = false
                         end
                     end
+
                     self:postattack()
                 end,
+
                 consume = function()
                     return self.consumeitem
                 end
             }
         }
+
         for _ = 1,4 do
             self.items:addItems(items)
         end
     end
+
     function self:getState()
-        if not self.soulislocked then
+        if not self.soul.locked then
             if self.flee then
                 return "flee"
             elseif self.battleisover then
@@ -119,6 +218,7 @@ return function() local self = {}
     function self:onenemyturn(turncount)
         self:endattack("* Smells like flavor text")
     end
+
     function self:nextdialogue()
         local text = self.dialoguetext[1]
         if text == nil then
@@ -129,87 +229,114 @@ return function() local self = {}
             self.dialogue:settext(text)
         end
     end
+
 	function self:postattack(opponent)
 		if self.fightbar then
 			self.fightbar.fadeanim = 1
 		end
+
 		for i = 1, #self.opponents do
 			if self.opponents[i].hp <= 0 and not self.opponents[i].killed then
 				self.opponents[i]:kill()
 			end
 		end
+
 		self:trytoendbattle()
 	end
+
 	function self:trytoendbattle()
 		local canendbattle = true
 		for i = 1, #self.opponents do
 			canendbattle = canendbattle and (self.opponents[i].killed or self.opponents[i].spared)
 		end
+
 		if canendbattle then
-			self.soulisactive = false
-			self.soulislocked = false
+			self.soul.active = false
+			self.soul.locked = false
 			self.dialogue:settext(self.wintext.."\n* You got 0 EXP and 0 Gold")
 			self.music:stop()
 			self.battleisover = true
+
 			return true
 		else
 			self:endturn()
+
 			return false
 		end
 	end
+
     function self:endturn(dialogue)
         self.turns = self.turns + 1
         self.dialogue:settext("")
-        self.soulisactive = false
+
+        self:forSouls(function(soul)
+            soul.active = false
+        end)
+
         self.dialoguetext = {unpack(dialogue or {})}
         self.endingturn = true
         self:nextdialogue()
     end
+
     function self:makeopponent(name, img, hp, options)
         local opponent = require "objects.opponent" (name or "Unknown Enemy", (#self.opponents+1) / (#self.opponents + 2) * 640, 240, img or "dummy", hp or 30, options or {})
         self.opponents[#self.opponents+1] = opponent
+
         return opponent
     end
+
     function self:makebutton(x, y, sprite, spriteselected, color, colorselected, soulx, souly)
         self.buttons[#self.buttons+1] = require "objects.battlebutton" (x, y, color, colorselected, sprite, spriteselected, soulx, souly)
     end
+
     function self:makeopponentselectors(func)
         local options = {}
+
         for i = 1, #self.opponents do
             local opponent = self.opponents[i]
             if opponent and not opponent.spared and not opponent.killed then
 				local ocol = {1, 1, 1}
+
 				if opponent.canspare then
 					ocol = {1, 1, 0}
 				end
+
                 options[#options+1] = {
                     text = "* " .. opponent.name,
+
 					color = ocol,
+
                     onclick = function(index)
                         func(opponent, index)
                     end
                 }
             end
         end
+
 		local rows
 		if #self.opponents > 3 then
 			rows = 3
 		end
+
         self.dialogue:makechoices(options, self.soul, 1, rows)
     end
+
     function self:makedefaultbuttons()
         self:makebutton(32, 432, "fight_button", "fight_button_selected", nil, {1, 1, 0.294117647}, function ()
 			-- print("killyou")
             self:makeopponentselectors(function(opponent)
-                self.soulisactive = false
+                self.soul.active = false
                 self.dialogue:settext("")
 				local at = 10
+
 				if self.soul then
 					at = self.soul.at
 				end
+
                 self.fightbar = Fightbar(opponent, at, self.box.x + self.box.width / 2, self.box.y + self.box.height / 2)
             end)
         end)
+
         self:makebutton(185, 432, "act_button", "act_button_selected", nil, nil, function ()
             self:makeopponentselectors(function(opponent)
 				if opponent.checktext then
@@ -227,9 +354,11 @@ return function() local self = {}
 				end
             end)
         end)
+
         self:makebutton(345, 432, "item_button", "item_button_selected", nil, nil, function ()
             if self.items then
                 local itemsChoices = {}
+
                 for i, item in pairs(self.items:getItems(true)) do
                     local name = item.name
                     local itemDialogue = {
@@ -241,9 +370,11 @@ return function() local self = {}
                     }
                     table.insert(itemsChoices, #itemsChoices+1, itemDialogue)
                 end
+
                 self.dialogue:makechoices(itemsChoices, self.soul, 2)
             end
         end)
+
         self:makebutton(500, 432, "mercy_button", "mercy_button_selected", nil, nil, function ()
 			local canspare = false
 			for i = 1, #self.opponents do
@@ -252,10 +383,12 @@ return function() local self = {}
 					break
 				end
 			end
+
 			local sparecol = {1, 1, 1}
 			if canspare then
 				sparecol = {1, 1, 0}
 			end
+
             self.dialogue:makechoices({
                 {
                     text = "* Spare",
@@ -266,6 +399,7 @@ return function() local self = {}
                                 self.opponents[i]:spare()
                             end
                         end
+
 						self:trytoendbattle()
                     end
                 },
@@ -276,11 +410,12 @@ return function() local self = {}
                         for i = 1, #self.opponents do
                             canflee = canflee and (math.random() < self.opponents[i].fleechance)
                         end
+
                         if canflee then
                             self.dialogue:settext("   * I'm outta here...")
                             self.dialogue:skip()
                             self.soul:flee()
-                            self.soulislocked = false
+                            self.soul.locked = false
                             self.flee = true
                         else
                             self:endturn()
@@ -290,76 +425,145 @@ return function() local self = {}
             }, self.soul)
         end)
     end
+
     function self.items:used(item)
     end
+
     function self.items:clicked(item)
         scene:endturn()
     end
+
     function self:setmusic(mus)
         self.music:stop()
         self.music = MUSIC(mus)
         self.music:play()
         self.music:setLooping(true)
     end
+
     self.music:play()
     self.music:setLooping(true)
+
+    -- *override* Called when the battlefield is updated
     function self:onupdate() end
+
+    -- *override* Called when the battle ends
+    function self:onBattleEnd()
+        POPSCENE()
+    end
+
     function self:update(dt)
         self.items:update(dt)
-        if self.soul.hp <= 0 then
-            self.soul:update()
+
+        self.aliveSouls = {}
+        -- Update souls
+        self:forSouls(function(soul, i)
+            if soul.hp > 0 then
+                table.insert(self.aliveSouls, soul)
+                -- On menu button selection
+                if not attackmode then
+                    local selectedbutton = self.selectedbuttons[i]
+                    local snaptobutton = self.snaptobuttons[i]
+
+                    if snaptobutton and #self.dialogue.menus == 0 and soul.active and soul.locked then
+                        if ISPRESSED "LEFT" then
+                            selectedbutton = selectedbutton - 1
+                            PLAYSOUND "snd_squeak.wav"
+                            if selectedbutton < 1 then
+                                selectedbutton = #self.buttons
+                            end
+                        end
+
+                        if ISPRESSED "RIGHT" then
+                            selectedbutton = selectedbutton + 1
+                            PLAYSOUND "snd_squeak.wav"
+                            if selectedbutton > #self.buttons then
+                                selectedbutton = 1
+                            end
+                        end
+
+                        if #self.buttons > 0 then
+                            soul.x = self.buttons[selectedbutton].x + self.buttons[selectedbutton].soulx
+                            soul.y = self.buttons[selectedbutton].y + self.buttons[selectedbutton].souly
+                        end
+
+                        self.selectedbuttons[i] = selectedbutton
+                    end
+
+                    if snaptobutton and #self.buttons > 0 then
+                        self.buttons[selectedbutton].hover = true
+                    end
+                end
+
+                -- Souls attacks collision detection
+                for index, attack in pairs(self.attacks) do
+                    if not self.attacksUpdated then
+                        attack:update(self)
+                    end
+
+                    if not attack.disabled then
+                        if soul.active then
+                            if soul:takedamage(attack) then
+                                if not attack.no_hit_destroy then
+                                    self.attacks[index] = nil
+                                end
+
+                                self.last_hit = soul
+                            end
+                        end
+                    end
+                end
+
+                self.attacksUpdated = true
+            end
+
+            if soul.active then
+                soul:update(dt)
+                self:runQueueActions(i, soul)
+            end
+        end)
+
+        self:clearQueueActions()
+
+        self.attacksUpdated = false
+        local aliveSoulsCount = #self.aliveSouls
+        if aliveSoulsCount <= 0 then
+            local deadSoul = self.last_hit
+            deadSoul.can_gameover = true
             return
         end
+
         if self.battleisover then
             if ISPRESSED "SELECT" and self.dialogue.text == self.dialogue.targettext then
-                POPSCENE()
+                self:onBattleEnd()
             end
         end
+
         for i = 1, #self.opponents do
             local opponent = self.opponents[i]
             opponent.x = i / (#self.opponents + 1) * 640
             opponent:update(self)
         end
+
         self.battlebg:update()
-        if self.soulisactive then
-            self.soul:update()
-        end
+
         for index, value in pairs(self.buttons) do
             value:update(self)
         end
+
 		if self.fightbar then
 			if self.fightbar:update() == false then
 				self.fightbar = nil
 			end
 		end
+
 		self.dialogue:update()
-        if not attackmode then
-            if self.snaptobuttons and #self.dialogue.menus == 0 and self.soulisactive and self.soulislocked then
-                if ISPRESSED "LEFT" then
-                    self.selectedbutton = self.selectedbutton - 1
-                    PLAYSOUND "snd_squeak.wav"
-                    if self.selectedbutton < 1 then
-                        self.selectedbutton = #self.buttons
-                    end
-                end
-                if ISPRESSED "RIGHT" then
-                    self.selectedbutton = self.selectedbutton + 1
-                    PLAYSOUND "snd_squeak.wav"
-                    if self.selectedbutton > #self.buttons then
-                        self.selectedbutton = 1
-                    end
-                end
-                if #self.buttons > 0 then
-                    self.soul.x = self.buttons[self.selectedbutton].x + self.buttons[self.selectedbutton].soulx
-                    self.soul.y = self.buttons[self.selectedbutton].y + self.buttons[self.selectedbutton].souly
-                end
-            end
-            if self.snaptobuttons and #self.buttons > 0 then
-                self.buttons[self.selectedbutton].hover = true
-            end
+
+        for _,healthmeter in ipairs(self.healthmeters) do
+            healthmeter:update()
         end
-        self.hpmeter:update()
+
         self.box:update()
+
         if not self.box.resizing then
             for index, value in ipairs(self.events) do
                 if value[1] <= time then
@@ -370,30 +574,24 @@ return function() local self = {}
                 end
             end
         end
-        for index, value in pairs(self.attacks) do
-            value:update(self)
-            if not value.disabled then
-                if self.soulisactive then
-                    if self.soul:takedamage(value) then
-                        self.attacks[index] = nil
-                    end
-                end
-            end
-        end
+
         if not self.box.resizing then
             time = time + 1
             if queuetime < time then
                 queuetime = time
             end
         end
+
         if self.endingturn then
             if ISPRESSED "SELECT" and self.dialogue.text == self.dialogue.targettext then
                 self:nextdialogue()
             end
         end
+
         self:onupdate()
         self.debug:update(dt)
     end
+
     function self.items:stepped()
         for _, item in ipairs(self.items) do
             if item.active and item.object and item.object.step then
@@ -401,62 +599,103 @@ return function() local self = {}
             end
         end
     end
+
     function self:draw()
-        if self.soul.hp <= 0 then
-            self.soul:draw()
+        local cond = #self.aliveSouls <= 0
+        self:forSouls(function(soul)
+            if cond then
+                soul:draw()
+            end
+        end)
+
+        -- This makes the BG black, possible option to disable it in the future
+        if cond then
             return
         end
+
         self.battlebg:draw()
+
         for i = 1, #self.opponents do
             local opponent = self.opponents[i]
             opponent:draw()
         end
+
         self.soulname:draw()
+
         for index, value in pairs(self.buttons) do
             value:draw(self)
         end
+
         self.box:draw()
-        self.hpmeter:draw()
-        if self.soulisactive then
-            self.soul:draw()
+
+        for _,healthmeter in ipairs(self.healthmeters) do
+            healthmeter:draw()
         end
+
+        if not cond then
+            self:forSouls(function(soul)
+                if soul.active then
+                    soul:draw()
+                end
+            end)
+        end
+
 		if self.fightbar then
 			self.fightbar:draw()
 		end
+
 		self.dialogue:draw()
+
         for index, value in pairs(self.attacks) do
             value:draw(self)
         end
+
         self.debug:draw()
     end
+
     function self:debugdraw()
         love.graphics.outline(self.box, {1, 1, 1})
         love.graphics.outline(self.box, {1, 0, 1}, 0, 0, 8)
-        love.graphics.outline(self.soul, {0, 1, 1}, -0.5, -0.5)
+
+        self:forSouls(function(soul) 
+            love.graphics.outline(soul, {0, 1, 1}, -0.5, -0.5)
+        end)
+
         love.graphics.outline(self.dialogue, {1, 1, 0})
-        love.graphics.outline(self.hpmeter, {1, 1, 0})
+
+        for _,healthmeter in ipairs(self.healthmeters) do
+            love.graphics.outline(healthmeter, {1, 1, 0})
+        end
+
         love.graphics.outline(self.soulname, {1, 1, 0})
         love.graphics.outline(self.battlebg, {1, 1, 0})
+
         for i = 1, #self.opponents do
             local opponent = self.opponents[i]
             love.graphics.outline(opponent, {1, 0.5, 0}, -0.5, -1)
         end
+
         for index, value in pairs(self.attacks) do
             love.graphics.outline(value, {1, 0, 0}, -0.5, -0.5)
         end
+
         for index, value in pairs(self.buttons) do
             love.graphics.outline(value, {0, 1, 0})
         end
+
         if love.keyboard.isDown("p") then
             love.graphics.setColor(0.2, 1, 0.2, 0.25)
             love.graphics.draw(IMAGE "froggit hopped close", 0, 0)
         end
+
         love.graphics.setColor(1, 1, 1)
         love.graphics.setFont(FONT "fnt_default")
+
         local eventcount = 0
         for key, value in pairs(self.events) do
             eventcount = eventcount + 1
         end
+
         love.graphics.print("Events: "..eventcount, 0, 0)
         love.graphics.print("Queuetime: "..queuetime, 0, 16)
         love.graphics.print("Time: "..time, 0, 32)
@@ -467,7 +706,7 @@ return function() local self = {}
         love.graphics.print("Step: "..tostring(self.items.step.step), 0, 64+32+16)
         love.graphics.print("State: "..self:getState(), 0, 64+64)
     end
-    local Attack = require "objects.attack"
+
     function self:makebullet(options)
         local image = IMAGE(options.image or "attack_default")
         local width = options.width or image:getWidth()
@@ -475,30 +714,37 @@ return function() local self = {}
         local spawned = options.spawned
         local update = options.update
         local draw = options.draw
+
         return Attack(width, height, image, spawned, update, draw)
     end
+
     function self:queue(event)
         self.events[#self.events+1] = {queuetime, event}
     end
+
     function self:wait(waittime)
         self:delayqueue(waittime*60)
     end
+
     function self:delayqueue(waittime)
         if queuetime < time then
             queuetime = time
         end
         queuetime = queuetime + waittime
     end
+
     function self:queuespawn(bulletconstructor, x, y, ...)
         local args = {...}
         self:queue(function()
             self:spawn(bulletconstructor, x, y, unpack(args))
         end)
     end
+
 	function self:clearqueue()
 		self.events = {}
         queuetime = time
 	end
+
     function self:spawn(bulletconstructor, x, y, ...)
         local bullet = bulletconstructor()
         attackid = attackid + 1
@@ -508,10 +754,12 @@ return function() local self = {}
         bullet.y = y
         bullet:spawned(...)
     end
+
     function self:destroy(attack)
         self.attacks[attackIDS[attack]] = nil
         attackIDS[attack] = nil
     end
+
     function self:endattack(flavortext)
         -- time = 0
         queuetime = time
@@ -522,30 +770,38 @@ return function() local self = {}
         self.box:resize(576, 140)
         self.dialogue:settext(flavortext or "* Smells like flavor text.")
         attackmode = false
-        self.soulisactive = true
+        self:forSouls(function(soul, i)
+            soul.active = true
+        end)
     end
+
     function self:startattack(func, width, height, instant)
         -- time = 0
         queuetime = time
         self.attacks = {}
         attackIDS = {}
-        self.soulisactive = false
+        self.soul.active = false
         self.events = {
             {0, function(self)
-                self.box:makesoul(self.soul)
-                self.soulisactive = true
+                self.box:makesoul(self.souls)
+                self:forSouls(function(soul, i)
+                    soul.active = true
+                end)
             end},
             {0, func}
         }
 		self.dialogue:settext("")
         self.box:resize(width or 140, height or 140)
+
 		if instant then
 			self.box.resizetimer = self.box.resizetime
 			self.box.width = width
 			self.box.height = height
 		end
+
         attackmode = true
     end
+    
     self:endattack()
     self:makedefaultbuttons()
 return self end

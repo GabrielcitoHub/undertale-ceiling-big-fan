@@ -5,6 +5,7 @@
 local prevX, prevY = 0, 0
 local mouseDX, mouseDY = 0, 0
 prevX, prevY = love.mouse.getPosition()
+
 -- small helper for deep copy
 local function vim_copy(t)
     if not t then return nil end
@@ -22,12 +23,14 @@ end
 
 return function() local self = {}
     self.debug = require "objects.debug" ()
+    self.textboxes = require "objects.textbox" ()
+    self.tbmapname = self.textboxes:new(10,480-40,320,30)
+    self.tbmapname.text.text = "map.lua"
 
     -- ---- Config ----
-    local GRID = 32
+    local GRID = 20
     local PALETTE_PATH = "tiles/" -- tile files should be in this folder, or use IMAGE names
-    local SAVE_FILE = "map_editor_save.lua"
-    local DEFAULT_TILE = 1
+    local SAVE_FILE = self.tbmapname.text.text
 
     -- ---- State ----
     self.mode = 1 -- 1..4
@@ -46,7 +49,7 @@ return function() local self = {}
     }
 
     -- Simple tile palette (fill with names / indices); user can replace with IMAGE names
-    self.palette = { "grass", "dirt", "water", "stone", "sand" }
+    self.palette = { "ruins", "grass", "dirt", "water", "stone", "sand" }
     self.paletteIndex = 1
 
     -- Global tiles/quads (flattened across palettes)
@@ -84,29 +87,31 @@ return function() local self = {}
     local function buildGlobalTiles()
         self.globalTiles = {}
         for pIndex, name in ipairs(self.palette) do
-            local img = loadImage(name)
-            if img then
-                local iw, ih = img:getWidth(), img:getHeight()
-                local tilesX = math.max(1, math.floor(iw / self.tileSize))
-                local tilesY = math.max(1, math.floor(ih / self.tileSize))
-                local localIndex = 1
-                for ty = 0, tilesY - 1 do
-                    for tx = 0, tilesX - 1 do
-                        local q = love.graphics.newQuad(
-                            tx * self.tileSize, ty * self.tileSize,
-                            self.tileSize, self.tileSize,
-                            iw, ih
-                        )
-                        table.insert(self.globalTiles, {
-                            img = img,
-                            quad = q,
-                            palette = name,
-                            paletteIndex = pIndex,
-                            localIndex = localIndex,
-                            tilesX = tilesX,
-                            tilesY = tilesY,
-                        })
-                        localIndex = localIndex + 1
+            if pIndex == self.paletteIndex then
+                local img = loadImage(name)
+                if img then
+                    local iw, ih = img:getWidth(), img:getHeight()
+                    local tilesX = math.max(1, math.floor(iw / self.tileSize))
+                    local tilesY = math.max(1, math.floor(ih / self.tileSize))
+                    local localIndex = 1
+                    for ty = 0, tilesY - 1 do
+                        for tx = 0, tilesX - 1 do
+                            local q = love.graphics.newQuad(
+                                tx * self.tileSize, ty * self.tileSize,
+                                self.tileSize, self.tileSize,
+                                iw, ih
+                            )
+                            table.insert(self.globalTiles, {
+                                img = img,
+                                quad = q,
+                                palette = name,
+                                paletteIndex = pIndex,
+                                localIndex = localIndex,
+                                tilesX = tilesX,
+                                tilesY = tilesY,
+                            })
+                            localIndex = localIndex + 1
+                        end
                     end
                 end
             end
@@ -132,7 +137,7 @@ return function() local self = {}
             shapes = vim_copy(self.map.shapes),
         }
         table.insert(undoStack, state)
-        if #undoStack > 50 then table.remove(undoStack, 1) end
+        if #undoStack > 500 then table.remove(undoStack, 1) end
     end
 
     -- Ensure tile table exists
@@ -200,9 +205,9 @@ return function() local self = {}
         }
         local ok, err = love.filesystem.write(SAVE_FILE, serialize(save))
         if not ok then
-            self.debug:print("Save failed:", err)
+            self.debug:print("Save failed: " .. err)
         else
-            self.debug:print("Saved to", SAVE_FILE)
+            self.debug:print("Saved to " .. SAVE_FILE)
         end
     end
 
@@ -213,7 +218,7 @@ return function() local self = {}
         end
         local chunk, err = love.filesystem.load(SAVE_FILE)
         if not chunk then
-            self.debug:print("Load failed:", err)
+            self.debug:print("Load failed:" .. err)
             return
         end
         local data = chunk()
@@ -227,42 +232,60 @@ return function() local self = {}
             self.palette = data.palette or self.palette
             ensureTiles()
             buildGlobalTiles() -- rebuild quads after loading palette
-            self.debug:print("Loaded", SAVE_FILE)
+            self.debug:print("Loaded " .. SAVE_FILE)
         end
     end
 
     -- ---- Interaction state ----
     local selection = { type = nil, idx = nil, sx = 0, sy = 0, ox = 0, oy = 0 } -- selection for drag
     local placingRect = nil -- used for rooms/shapes drag
-    local dragging = false
 
     -- Utilities
     local function clamp(a,b,c) return math.max(b, math.min(c, a)) end
 
-    -- UI draw helpers
+    local function tileAlpha(gx, gy)
+        if gx < 1 or gy < 1 or gx > self.map.width or gy > self.map.height then
+            return 0.05   -- fade outside
+        end
+        return 0.4  -- or whatever alpha for inside grid lines
+    end
+
     local function drawGrid()
-        local w,h = love.graphics.getWidth(), love.graphics.getHeight()
-        local startx = - (self.camera.x % self.gridSize)
-        local starty = - (self.camera.y % self.gridSize)
+        local w, h = love.graphics.getWidth(), love.graphics.getHeight()
+
+        local worldW = w / self.camera.zoom
+        local worldH = h / self.camera.zoom
+
+        -- visible tile range
+        local startGX = math.floor(self.camera.x / self.gridSize)
+        local startGY = math.floor(self.camera.y / self.gridSize)
+        local endGX   = math.ceil((self.camera.x + worldW) / self.gridSize)
+        local endGY   = math.ceil((self.camera.y + worldH) / self.gridSize)
+
         love.graphics.push()
-        love.graphics.translate(-self.camera.x * self.camera.zoom, -self.camera.y * self.camera.zoom)
         love.graphics.scale(self.camera.zoom, self.camera.zoom)
+        love.graphics.translate(-self.camera.x, -self.camera.y)
         love.graphics.setLineWidth(1 / self.camera.zoom)
-        love.graphics.setColor(0.7,0.7,0.7,0.25)
-        for x = startx, w + self.gridSize, self.gridSize do
-            love.graphics.line(x, 0, x, h + self.gridSize)
+
+        for gx = startGX, endGX do
+            for gy = startGY, endGY do
+                local alpha = tileAlpha(gx + 1, gy + 1)
+                love.graphics.setColor(0.7, 0.7, 0.7, alpha)
+
+                local x = gx * self.gridSize
+                local y = gy * self.gridSize
+
+                love.graphics.rectangle("line", x, y, self.gridSize, self.gridSize)
+            end
         end
-        for y = starty, h + self.gridSize, self.gridSize do
-            love.graphics.line(0, y, w + self.gridSize, y)
-        end
+
         love.graphics.pop()
     end
 
-    -- Film-roll preview for globalTiles
     local function drawFilmRollPreview(cx, cy, cr, csx, csy)
         if #self.globalTiles == 0 then return end
         local spacing = 38
-        local displayRange = 4 -- how many above/below to show
+        local displayRange = 2 -- how many above/below to show
         for offset = -displayRange, displayRange do
             local idx = self.globalIndex + offset
             -- wrap
@@ -280,13 +303,8 @@ return function() local self = {}
                 love.graphics.draw(entry.img, entry.quad, px, py, cr, csx * scale, csy * scale)
             end
         end
-        -- highlight selected
-        love.graphics.setColor(1,1,0,0.9)
-        --love.graphics.rectangle("line", cx - 36, cy - 36, csx, csy)
-        love.graphics.setColor(1,1,1,1)
     end
 
-    -- Draw tiles (now using globalTiles quads)
     local function drawTiles()
         love.graphics.push()
         love.graphics.translate(-self.camera.x * self.camera.zoom, -self.camera.y * self.camera.zoom)
@@ -313,7 +331,6 @@ return function() local self = {}
         love.graphics.pop()
     end
 
-    -- Draw objects
     local function drawObjects()
         love.graphics.push()
         love.graphics.translate(-self.camera.x * self.camera.zoom, -self.camera.y * self.camera.zoom)
@@ -331,7 +348,6 @@ return function() local self = {}
         love.graphics.pop()
     end
 
-    -- Draw rooms (rects)
     local function drawRooms()
         love.graphics.push()
         love.graphics.translate(-self.camera.x * self.camera.zoom, -self.camera.y * self.camera.zoom)
@@ -349,7 +365,6 @@ return function() local self = {}
         love.graphics.pop()
     end
 
-    -- Draw shapes
     local function drawShapes()
         love.graphics.push()
         love.graphics.translate(-self.camera.x * self.camera.zoom, -self.camera.y * self.camera.zoom)
@@ -380,15 +395,9 @@ return function() local self = {}
 
     -- UI overlay
     local function drawUI()
-        love.graphics.setColor(0,0,0,0.6)
-        love.graphics.rectangle("fill", 4, 4, 420, 180)
         love.graphics.setColor(1,1,1,1)
-        love.graphics.print(("Mode: %d (1=Tiles 2=Objs 3=Rooms 4=Shapes)"):format(self.mode), 8, 8)
+        love.graphics.print("LMB: place/select  RMB: erase/deselect   S:save L:load Z:undo", 8, 12)
         love.graphics.print(("Grid: %d px    Palette idx: %d/%d"):format(self.gridSize, self.paletteIndex, #self.palette), 8, 24)
-        love.graphics.print("LMB: place/select  RMB: erase/deselect   S:save L:load Z:undo", 8, 40)
-        love.graphics.print("UP/DOWN: scroll tiles   LEFT/RIGHT: cycle palettes", 8, 56)
-        love.graphics.print("Scroll: cycle palette/size. Click+drag to move camera (middle) or shapes/rooms/objects", 8, 72)
-        love.graphics.print("Selected: "..(selection.type or "none"), 8, 88)
 
         -- draw small palette preview
         local px = 8; local py = 112
@@ -400,7 +409,9 @@ return function() local self = {}
                 local scale = 32 / math.max(1, math.max(iw, ih))
                 love.graphics.draw(img, px + (i-1)*36, py, 0, 32 / iw, 32 / ih)
                 -- film-roll preview to the right of the UI box
-                drawFilmRollPreview(px + (i-1)*36, py, 0, 32 / iw, 32 / ih)
+                if i == self.paletteIndex then
+                    drawFilmRollPreview(px + (i-1)*36, py, 0, 32 / iw, 32 / ih)
+                end
             else
                 love.graphics.setColor(0.4,0.4,0.4,1)
                 love.graphics.rectangle("fill", px + (i-1)*36, py, 32, 32)
@@ -412,132 +423,54 @@ return function() local self = {}
         end
     end
 
-    -- Input handling
-    function self:update(dt)
-        local x, y = love.mouse.getPosition()
-        mouseDX = x - prevX
-        mouseDY = y - prevY
-        prevX, prevY = x, y
-        -- update mouse world pos
+    function self:MousePressed(x,y,button)
         local mx,my = MOUSEX(),MOUSEY()
         self.mouse.x, self.mouse.y = mx,my
         self.mouse.wx, self.mouse.wy = screenToWorld(mx, my)
-        if love.mouse.isDown(1) then self.mouse.down = true else self.mouse.down = false end
-
-        -- camera pan with middle mouse or alt+LMB
-        if love.mouse.isDown(2) or (love.keyboard.isDown("lalt") and love.mouse.isDown(1)) then
-            local dx,dy = mouseDX, mouseDY
-            self.camera.x = self.camera.x - dx / self.camera.zoom
-            self.camera.y = self.camera.y - dy / self.camera.zoom
-        end
-
-        -- shortcuts
-        if love.keyboard.isDown("1") then self.mode = 1 end
-        if love.keyboard.isDown("2") then self.mode = 2 end
-        if love.keyboard.isDown("3") then self.mode = 3 end
-        if love.keyboard.isDown("4") then self.mode = 4 end
-
-        -- save/load/undo
-        if love.keyboard.isDown("s") then
-            saveMap()
-        end
-        if love.keyboard.isDown("l") then
-            loadMap()
-        end
-        if ISPRESSED "SELECT" then
-            -- simple undo: pop last snapshot
-            local st = table.remove(undoStack)
-            if st then
-                self.map.tiles = st.tiles or {}
-                self.map.objects = st.objects or {}
-                self.map.rooms = st.rooms or {}
-                self.map.shapes = st.shapes or {}
-            end
-        end
-
-        -- palette left/right
-        if ISPRESSED "RIGHT" then
-            self.paletteIndex = clamp(self.paletteIndex + 1, 1, #self.palette)
-            buildGlobalTiles()
-        end
-        if ISPRESSED "LEFT" then
-            self.paletteIndex = clamp(self.paletteIndex - 1, 1, #self.palette)
-            buildGlobalTiles()
-        end
-
-        -- tile film-roll scrolling (UP/DOWN)
-        if ISPRESSED "UP" then
-            self.globalIndex = (self.globalIndex - 2) % math.max(1,#self.globalTiles) + 1
-        end
-        if ISPRESSED "DOWN" then
-            self.globalIndex = (self.globalIndex) % math.max(1,#self.globalTiles) + 1
-        end
-
-        -- place / select logic on LMB press (single-click)
-        if love.mouse.isDown(1) then
-            -- to avoid repeated fast actions we use a simple flagging; in heavy use you can replace with pressed event handling
-            if not self._wasDown then
-                self._wasDown = true
-                -- click action
-                local wx,wy = self.mouse.wx, self.mouse.wy
-                if self.mode == 1 then
-                    -- tile painting: place currently selected global tile
-                    local gx,gy = worldToGrid(wx, wy)
-                    if gx >=1 and gy >=1 and gx <= self.map.width and gy <= self.map.height then
-                        pushUndo()
-                        -- store the selected global tile index
-                        if #self.globalTiles > 0 then
-                            self.map.tiles[gy][gx] = self.globalIndex
-                        else
-                            self.map.tiles[gy][gx] = nil
-                        end
-                    end
-                elseif self.mode == 2 then
-                    -- object place / select
-                    -- try select first
-                    local found = false
-                    for i,obj in ipairs(self.map.objects) do
-                        if wx >= obj.x and wx <= obj.x + (obj.w or 16) and wy >= obj.y and wy <= obj.y + (obj.h or 16) then
-                            selection = { type = "object", idx = i, sx = wx, sy = wy, ox = obj.x, oy = obj.y }
-                            found = true
-                            break
-                        end
-                    end
-                    if not found then
-                        pushUndo()
-                        local newobj = { name = "obj"..(#self.map.objects+1), x = wx, y = wy, w = 16, h = 16, props = {} }
-                        table.insert(self.map.objects, newobj)
-                        selection = { type = "object", idx = #self.map.objects, sx = wx, sy = wy, ox = newobj.x, oy = newobj.y }
-                    end
-                elseif self.mode == 3 then
-                    -- start room drag
-                    placingRect = { x = wx, y = wy, w = 0, h = 0 }
-                    selection = { type = "room", idx = nil }
-                elseif self.mode == 4 then
-                    -- shape place: cycle between rect/circle on shift
-                    local sh = { type = love.keyboard.isDown("lshift") and "circle" or "rect", x = wx, y = wy, w = 32, h = 32, r = 16, props = {} }
-                    pushUndo()
-                    table.insert(self.map.shapes, sh)
-                    selection = { type = "shape", idx = #self.map.shapes }
-                end
-            end
-        else
-            self._wasDown = false
-        end
-
-        -- mouse release handling for room placement
-        if not love.mouse.isDown(1) and placingRect then
+        if button == 1 then
+            -- click action
             local wx,wy = self.mouse.wx, self.mouse.wy
-            placingRect.w = wx - placingRect.x
-            placingRect.h = wy - placingRect.y
-            pushUndo()
-            table.insert(self.map.rooms, { x = placingRect.x, y = placingRect.y, w = placingRect.w, h = placingRect.h, props = {} })
-            placingRect = nil
-        end
-
-        -- right-click erase/deselect
-        if love.mouse.isDown(2) and not self._wasRDown then
-            self._wasRDown = true
+            if self.mode == 1 then
+                -- tile painting: place currently selected global tile
+                local gx,gy = worldToGrid(wx, wy)
+                if gx >=1 and gy >=1 and gx <= self.map.width and gy <= self.map.height then
+                    pushUndo()
+                    -- store the selected global tile index
+                    if #self.globalTiles > 0 then
+                        self.map.tiles[gy][gx] = self.globalIndex
+                    else
+                        self.map.tiles[gy][gx] = nil
+                    end
+                end
+            elseif self.mode == 2 then
+                -- object place / select
+                -- try select first
+                local found = false
+                for i,obj in ipairs(self.map.objects) do
+                    if wx >= obj.x and wx <= obj.x + (obj.w or 16) and wy >= obj.y and wy <= obj.y + (obj.h or 16) then
+                        selection = { type = "object", idx = i, sx = wx, sy = wy, ox = obj.x, oy = obj.y }
+                        found = true
+                        break
+                    end
+                end
+                if not found then
+                    pushUndo()
+                    local newobj = { name = "obj"..(#self.map.objects+1), x = wx, y = wy, w = 16, h = 16, props = {} }
+                    table.insert(self.map.objects, newobj)
+                    selection = { type = "object", idx = #self.map.objects, sx = wx, sy = wy, ox = newobj.x, oy = newobj.y }
+                end
+            elseif self.mode == 3 then
+                -- start room drag
+                placingRect = { x = wx, y = wy, w = 0, h = 0 }
+                selection = { type = "room", idx = nil }
+            elseif self.mode == 4 then
+                -- shape place: cycle between rect/circle on shift
+                local sh = { type = love.keyboard.isDown("lshift") and "circle" or "rect", x = wx, y = wy, w = 32, h = 32, r = 16, props = {} }
+                pushUndo()
+                table.insert(self.map.shapes, sh)
+                selection = { type = "shape", idx = #self.map.shapes }
+            end
+        elseif button == 2 then
             local wx,wy = self.mouse.wx, self.mouse.wy
             if self.mode == 1 then
                 local gx,gy = worldToGrid(wx,wy)
@@ -575,6 +508,71 @@ return function() local self = {}
                     end
                 end
             end
+        end
+    end
+
+    -- Input handling
+    function self:update(dt)
+        local x, y = love.mouse.getPosition()
+        mouseDX = x - prevX
+        mouseDY = y - prevY
+        prevX, prevY = x, y
+        -- update mouse world pos
+        local mx,my = MOUSEX(),MOUSEY()
+        self.mouse.x, self.mouse.y = mx,my
+        self.mouse.wx, self.mouse.wy = screenToWorld(mx, my)
+
+        -- camera pan with middle mouse or alt+LMB
+        if love.mouse.isDown(3) or (love.keyboard.isDown("lalt") and love.mouse.isDown(2)) then
+            local dx,dy = mouseDX, mouseDY
+            self.camera.x = self.camera.x - dx / self.camera.zoom
+            self.camera.y = self.camera.y - dy / self.camera.zoom
+        end
+
+        if self.textboxes.focused == nil then
+            if ISPRESSED "SELECT" then
+                -- simple undo: pop last snapshot
+                local st = table.remove(undoStack)
+                if st then
+                    self.map.tiles = st.tiles or {}
+                    self.map.objects = st.objects or {}
+                    self.map.rooms = st.rooms or {}
+                    self.map.shapes = st.shapes or {}
+                end
+            end
+
+            -- palette left/right
+            if ISPRESSED "RIGHT" then
+                self.paletteIndex = clamp(self.paletteIndex + 1, 1, #self.palette)
+                buildGlobalTiles()
+            end
+            if ISPRESSED "LEFT" then
+                self.paletteIndex = clamp(self.paletteIndex - 1, 1, #self.palette)
+                buildGlobalTiles()
+            end
+
+            -- tile film-roll scrolling (UP/DOWN)
+            if ISPRESSED "UP" then
+                self.globalIndex = (self.globalIndex - 2) % math.max(1,#self.globalTiles) + 1
+            end
+            if ISPRESSED "DOWN" then
+                self.globalIndex = (self.globalIndex) % math.max(1,#self.globalTiles) + 1
+            end
+        end
+
+        -- mouse release handling for room placement
+        if not love.mouse.isDown(1) and placingRect then
+            local wx,wy = self.mouse.wx, self.mouse.wy
+            placingRect.w = wx - placingRect.x
+            placingRect.h = wy - placingRect.y
+            pushUndo()
+            table.insert(self.map.rooms, { x = placingRect.x, y = placingRect.y, w = placingRect.w, h = placingRect.h, props = {} })
+            placingRect = nil
+        end
+
+        -- right-click erase/deselect
+        if love.mouse.isDown(2) and not self._wasRDown then
+            self._wasRDown = true
         elseif not love.mouse.isDown(2) then
             self._wasRDown = false
         end
@@ -594,11 +592,40 @@ return function() local self = {}
         end
 
         -- Handle ESC / CANCEL
-        if ISPRESSED "CANCEL" then
+        if ISPRESSED "EXIT" then
             RELOAD()
         end
 
+        self.textboxes:update(dt)
+        SAVE_FILE = self.tbmapname.text.text
         self.debug:update(dt)
+    end
+
+    function self:textinput(t)
+        self.textboxes:textinput(t)
+    end
+
+    function self:keypressed(key)
+        self.textboxes:keypressed(key)
+        if self.textboxes.focused ~= nil then return end
+
+        -- shortcuts
+        if key == "1" then self.mode = 1 end
+        if key == "2" then self.mode = 2 end
+        if key == "3" then self.mode = 3 end
+        if key == "4" then self.mode = 4 end
+
+        -- save/load/undo
+        if key == "s" then
+            saveMap()
+        end
+        if key == "l" then
+            loadMap()
+        end
+    end
+
+    function self:keyreleased(key)
+        self.textboxes:keyreleased(key)
     end
 
     -- wheel callback (attach to love.wheelmoved from main or provide wrapper)
@@ -634,18 +661,15 @@ return function() local self = {}
         end
 
         drawUI()
+        self.textboxes:draw()
         self.debug:draw()
     end
 
     -- optional callback wrappers so main can forward events
     function self:mousepressed(x,y,button)
-        -- forward to internal
-        if button == 2 then self._wasRDown = true end
-        if button == 1 then self._wasDown = true end
-    end
-    function self:mousereleased(x,y,button)
-        if button == 2 then self._wasRDown = false end
-        if button == 1 then self._wasDown = false end
+        self.textboxes:mousepressed(x,y,button)
+        if self.textboxes.focused ~= nil then return end
+        self:MousePressed(x,y,button)
     end
 
     -- initialize: ensure tables exist and build quads

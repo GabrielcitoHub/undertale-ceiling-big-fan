@@ -10,7 +10,8 @@ return function(decay) local self = {}
             end
         end
         if self.timer > 3.1 then
-            love.event.quit()
+            self.timer = 0
+            POPSCENE()
         end
     end
     function self:draw()
