@@ -1,4 +1,12 @@
-return function(opponent, at, x, y, lines, speed, sound, attackanim, cutoff) local self = {}
+---@param opponent Opponent
+---@param x number|nil
+---@param y number|nil
+---@param speed number|nil
+---@param sound love.Source|nil
+---@param cutoff number|nil
+return function(opponent, at, x, y, lines, speed, sound, attackanim, cutoff)
+---@class FightBar
+    local self = {}
     self.image = IMAGE "attack_target"
     self.x = x - self.image:getWidth() / 2
     self.y = y - self.image:getHeight() / 2

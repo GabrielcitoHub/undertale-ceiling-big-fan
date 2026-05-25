@@ -1,6 +1,7 @@
 local scenestack = Game.scenestack
 local pressed = Game.pressed
 
+---@param scene table
 function ReloadScene(scene)
 	for key, value in pairs(pressed) do
 		pressed[key] = ISDOWN(key)
@@ -11,6 +12,7 @@ function ReloadScene(scene)
 	end
 end
 
+---@param scene table
 function SETSCENE(scene)
 	ReloadScene(scene)
 	scenestack = {scene}
@@ -19,6 +21,7 @@ function SETSCENE(scene)
     Game.scenestack = scenestack
 end
 
+---@param scene table
 function PUSHSCENE(scene)
 	ReloadScene(scene)
 	scenestack[#scenestack+1] = scene

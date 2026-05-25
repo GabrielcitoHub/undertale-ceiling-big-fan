@@ -1,4 +1,6 @@
-return function(x, y, w, h, soul) local self = {}
+return function(x, y, w, h, soul)
+---@class HealthMeter
+    local self = {}
     self.x = x or 275
     self.y = y or 400
     self.height = h or 21

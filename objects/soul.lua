@@ -8,7 +8,13 @@ local function multiply(tbl, val)
 	return ret
 end
 
-return function(x, y, maxhp, iframes) local self = {}
+---@param x number|nil
+---@param y number|nil
+---@param maxhp number|nil
+---@param iframes number|nil
+return function(x, y, maxhp, iframes)
+---@class Soul
+	local self = {}
 	self.image = IMAGE "soul"
 	self.x = math.floor(x or 0)
 	self.y = math.floor(y or 0)
@@ -43,17 +49,21 @@ return function(x, y, maxhp, iframes) local self = {}
 		return self.displayColor or self.color
 	end
 
+---@param val number
 	function self:setlove(val)
 		self.love = val
 		self:calcstats()
 		self.hp = self.maxhp
 	end
 
-	function self:increaselove()
-		self.love = self.love + 1
+---@param val number
+	function self:increaselove(val)
+		val = val or 1
+		self.love = self.love + val
 		self:calcstats()
 	end
 
+---@param bullet Attack
 	function self:takedamage(bullet)
 		if not (
 			self.x - self.width / 2 > bullet.x + bullet.width / 2
@@ -77,6 +87,8 @@ return function(x, y, maxhp, iframes) local self = {}
 			PLAYSOUND "snd_hurt1.wav"
 
 			return true
+		else
+			return false
 		end
 	end
 
@@ -91,6 +103,7 @@ return function(x, y, maxhp, iframes) local self = {}
 		self.df = 10 + math.floor((self.love - 1) / 4)
 	end
 
+---@param dt number
 	function self:deathsequence(dt)
 		local old_deathTimer = self.deathtimer
 		self.deathtimer = self.deathtimer + (1 * 60) * dt
@@ -130,10 +143,11 @@ return function(x, y, maxhp, iframes) local self = {}
 		end
 	end
 
+---@param dt number
 	function self:updateDeath(dt)
 		if self.hp <= 0 then
+			self.locked = true
 			self:deathsequence(dt)
-
 			return
 		end
 	end
@@ -149,8 +163,8 @@ return function(x, y, maxhp, iframes) local self = {}
 		end
 	end
 
-	function self:updateMovement()
-		local speed = self.speed
+	function self:updateMovement(dt)
+		local speed = (self.speed * TARGETFPS) * dt
 		if ISDOWN "CANCEL" then
 			speed = speed/2
 		end
@@ -212,6 +226,7 @@ return function(x, y, maxhp, iframes) local self = {}
 		end
 	end
 
+---@param dt number
 	function self:update(dt)
 		self:updateDeath(dt)
 		self:updateImage()
@@ -220,8 +235,8 @@ return function(x, y, maxhp, iframes) local self = {}
 		self:updateFleeing()
 		self:updateIFrames()
 
-		if self.active then
-			self:updateMovement()
+		if self.active and not self.locked then
+			self:updateMovement(dt)
 		end
 	end
 

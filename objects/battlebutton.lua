@@ -41,26 +41,19 @@ return function(x, y, col, highlightcol, spr, sprselected, onclick, sx, sy) loca
             if soulsAmount > 1 then
                 if self.hover and ISPRESSED "SELECT" and not soul.queued then -- TO-DO: Replace "ISPRESSED "SELECT" with soul keybinds
                     PLAYSOUND "snd_select.wav"
-                    for _, button in pairs(battle.buttons) do
-                        button.hover = false
-                    end
 
                     if self:isOver(soul) then
                         self:onclick()
                     end
-                    
-                    -- soul.queued = self.onclick
-                end
-
-                if soul.queued and ISPRESSED "CANCEL" then
-                    soul.queued = nil
                 end
             end
         end)
 
         -- Singleplayer interaction
-        if (soulsAmount == 1 or #battle.aliveSouls <= 1) and self.hover and ISPRESSED "SELECT" then
+        -- print(soulsAmount)
+        if (soulsAmount == 1 or #battle.aliveSouls <= 1) and self.hover and self:isOver(battle.soul) and ISPRESSED "SELECT" then
             PLAYSOUND "snd_select.wav"
+            print("A button was clicked!")
             self:onclick()
         end
     end

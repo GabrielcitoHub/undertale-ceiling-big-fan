@@ -3,7 +3,12 @@
 local controlleftalt
 local controlrightalt
 
-love.wiimote = love.wiimote or nil
+love.wiimote = love.wiimote or {
+	---@param joystick number
+	getWiimote = function(joystick)
+		return false
+	end,
+}
 
 if PLATFORM == "Wii" then
 	CONTROLS = {
@@ -64,6 +69,9 @@ for key, value in pairs(CONTROLS) do
 	pressed[key] = false
 end
 
+---@param alt table
+---@param id string
+---@return boolean
 function CHECKALT(alt, id, wiimote)
 	local down
 	if PLATFORM == "Wii" then
@@ -79,13 +87,17 @@ function CHECKALT(alt, id, wiimote)
 	return down
 end
 
+---@param platform string
+---@param id string
+---@param control number|BUTTON|nil
+---@return boolean|nil
 function TRIGGERPLATFORMBUTTON(platform, id, control)
 	if platform == "Wii" then
 		if love.wiimote then
 			local altl = CHECKALT(controlleftalt, id, control) if altl then return altl end
 			local altr = CHECKALT(controlrightalt, id, control) if altr then return altr end
 
-			return control:isDown(CONTROLS[id])
+			return control:isDown()
 		else
 			return false
 		end
@@ -99,6 +111,9 @@ function TRIGGERPLATFORMBUTTON(platform, id, control)
 	end
 end
 
+---@param id string
+---@param joystick number|nil
+---@return boolean|nil
 function ISDOWN(id,joystick)
 	joystick = joystick or 1
 	if PLATFORM == "Wii" then
@@ -116,6 +131,9 @@ function ISDOWN(id,joystick)
 	end
 end
 
+---@param id string
+---@param joystick number|nil
+---@return boolean|nil
 function ISPRESSED(id, joystick)
 	joystick = joystick or 1
 	if PLATFORM == "Wii" then
@@ -143,8 +161,11 @@ function ISPRESSED(id, joystick)
 	end
 end
 
-function GETKEY(key, from)
-	key = string.upper(key)
+---@param id string
+---@param from number|nil
+---@return string|nil
+function GETKEY(id, from)
+	id = string.upper(id)
 	local replacements = {
 		["return"] = "enter",
 		["lshift"] = "shift",
@@ -157,19 +178,19 @@ function GETKEY(key, from)
 	local gotKey
 	if PLATFORM == "Android" then
 		if not from then
-			gotKey = BUTTONS:getID(key)
+			gotKey = BUTTONS:getID(id)
 		else
 			return
 		end
 	else
 		if not from then
-			gotKey = CONTROLS[key]
+			gotKey = CONTROLS[id]
 		elseif from == 1 then
 			if not controlleftalt then return end
-			gotKey = controlleftalt[key]
+			gotKey = controlleftalt[id]
 		elseif from == 2 then
 			if not controlrightalt then return end
-			gotKey = controlrightalt[key]
+			gotKey = controlrightalt[id]
 		end
 	end
 

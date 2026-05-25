@@ -1,4 +1,6 @@
-return function(x, y, w, h, tw, th) local self = {}
+return function(x, y, w, h, tw, th)
+---@class BattleBox
+	local self = {}
 	local Soul = require "objects.soul"
 	self.x = x or 250
 	self.y = y or 250
@@ -13,7 +15,9 @@ return function(x, y, w, h, tw, th) local self = {}
 	self.resizetime = 20
 	self.smoothresize = false
 	self.enabled = true
+	self.hidden = false
 
+---@param souls Soul[]|nil
 	function self:makesoul(souls)
 		souls = souls or {}
 		local xpos, ypos = self.x + self.width / 2, self.y + self.height / 2
@@ -35,8 +39,9 @@ return function(x, y, w, h, tw, th) local self = {}
 		self.soul = nil
 		self.souls = nil
 	end
-	
-	function self:update()
+
+---@param dt number
+	function self:update(dt)
 		self.resizing = false
 		if self.resizetimer < self.resizetime then
 			self.resizing = true
@@ -46,6 +51,8 @@ return function(x, y, w, h, tw, th) local self = {}
 			if self.smoothresize then
 				changeamount = self.resizetimer / self.resizetime /2
 			end
+
+			changeamount = (changeamount * TARGETFPS) * dt
 
 			if self.resizetimer == self.resizetime then
 				changeamount = 1
@@ -99,6 +106,8 @@ return function(x, y, w, h, tw, th) local self = {}
 		love.graphics.rectangle("fill", self.x + self.width - 5, self.y, 5, self.height)
 	end
 
+---@param w number
+---@param h number
 	function self:resize(w, h)
 		self.resizetimer = 0
 		self.targetwidth = w

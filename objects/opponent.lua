@@ -1,5 +1,7 @@
 local Hpbar = require "objects.hpbar"
-return function(name, x, y, img, hp, options) local self = {}
+return function(name, x, y, img, hp, options)
+---@class Opponent
+    local self = {}
     self.x = x
     self.y = y
     self.spared = false
@@ -21,6 +23,7 @@ return function(name, x, y, img, hp, options) local self = {}
 	self.hpbar = nil
 	self.attacked = false
     self.particles = {}
+
     function self:updateParticles()
         for i = #self.particles, 1, -1 do
             local p = self.particles[i]
@@ -32,6 +35,7 @@ return function(name, x, y, img, hp, options) local self = {}
             end
         end
     end
+
     function self:vaporize()
         local imgData = IMAGEDATA(img) or IMAGEDATA("dummy")
         local w, h = self.image:getWidth(), self.image:getHeight()
@@ -66,22 +70,30 @@ return function(name, x, y, img, hp, options) local self = {}
             end
         end
     end
+
+---@param checktext string|table|nil
+---@param acts table|nil
     function self:makeacts(checktext, acts)
         local newchecktext = checktext
         if type(newchecktext) == "string" then
             newchecktext = {newchecktext}
         end
+
         local auto = "* "..name.." - "..tostring(self.atk).." ATK "..tostring(self.def).." DEF"
 		if newchecktext then
         	newchecktext[1] = newchecktext[1]:gsub("%%", auto)
 		end
+
         self.checktext = newchecktext
         self.acts = acts or {}
     end
+
+---@param battle BattleState
     function self:update(battle)
         if self.killed then
             self:updateParticles()
         end
+
 		if self.hpbar then
 			if self.hpbar:update() == false then
 				self.hpbar = nil
@@ -91,6 +103,7 @@ return function(name, x, y, img, hp, options) local self = {}
 				end
 			end
 		end
+
 		if self.shudder ~= 0 and self.shuddertimer <= 0 then
 			if self.shudder > 0 then
 				self.shudder = -self.shudder + 1
@@ -99,14 +112,17 @@ return function(name, x, y, img, hp, options) local self = {}
 			end
 			self.shuddertimer = 4
 		end
+
 		self.shuddertimer = self.shuddertimer - 1
         self.width = self.image:getWidth() * 2
         self.height = self.image:getHeight() * 2
     end
+
     function self:draw()
         if self.spared then
             love.graphics.setColor(0.5, 0.5, 0.5)
         end
+
         if self.killed then
             if self.particles then
                 for _, p in ipairs(self.particles) do
@@ -117,17 +133,22 @@ return function(name, x, y, img, hp, options) local self = {}
 			--love.graphics.print("oh noooo im being vaoprized", self.x, self.y - 50)
             --love.graphics.setColor(1, 0, 0)
         end
+
         if not self.hidden then love.graphics.draw(self.image, self.x - self.image:getWidth() + self.shudder, self.y - self.image:getHeight() * 2, 0, 2, 2) end
+
         love.graphics.setColor(1, 1, 1, 1)
+
 		if self.hpbar then
 			self.hpbar:draw()
 		end
     end
+
     function self:spare()
         PLAYSOUND "snd_vaporized.wav"
         self.canspare = false
         self.spared = true
     end
+
     function self:kill()
         PLAYSOUND "snd_vaporized.wav"
         self.hidden = true
@@ -136,6 +157,9 @@ return function(name, x, y, img, hp, options) local self = {}
 		self.hp = 0
         self:vaporize()
     end
+
+---@param num number
+---@param attacked boolean|nil
 	function self:damage(num, attacked)
         PLAYSOUND "snd_damage.wav"
 		self.shudder = 10
@@ -147,9 +171,11 @@ return function(name, x, y, img, hp, options) local self = {}
 			self.attacked = attacked
 		end
 	end
+
 	function self:miss()
 		self.hpbar = Hpbar("MISS", self.x, self.y - self.image:getHeight() * 2 - 20, 0, 0, 0)
 	end
+
     if options.update then self.update = options.update end
     if options.draw then self.draw = options.draw end
 return self end

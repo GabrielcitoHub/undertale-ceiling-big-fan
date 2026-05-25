@@ -12,4 +12,9 @@ This project was written in Lua with [LOVE2D](https://love2d.org/), so make sure
 - An enemy can still prevent the player from fleeing even if they are already spared or killed
 - There is no easy way to define an enemy with more than one sprite or moving parts
 - Pre-attack enemy dialogue is not possible
-- Flavor text appears before the battle box has fully expanded to fit it after a turn resulting in a minor visual glitch
+
+## To-do
+- Fix items (broken, will fix soon)
+- Overworld maps (Ruins, Snowdin, Etc)
+- Multiple souls support
+- Weapon items, Armor items, Etc

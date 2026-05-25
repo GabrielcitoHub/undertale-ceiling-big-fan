@@ -81,7 +81,7 @@ return function(endingtext,intro) local self = {}
             table.insert(dialogue, "* See you next time!")
             table.insert(dialogue, "(No coffe was harmed on the production of this software\n  i hate coffe)")
         else
-            table.insert(dialogue, {"* This is an ending scene\n  test text",function() self.dialogue:setpotrait("wink") end})
+            table.insert(dialogue, {"* This is an ending scene\n  test text",function() self.dialogue:setspeaker("sans") self.dialogue:setpotrait("wink") end})
             table.insert(dialogue, {"* You can use this to make\n  other endings",function() self.dialogue:setpotrait("chuckle") end})
             table.insert(dialogue, {"* ererer er",function() self.dialogue:setpotrait("chuckle2") end})
             table.insert(dialogue, {"* look at this shiny code, \n  its soo cool wow",function() self.dialogue:setpotrait("normal") end})

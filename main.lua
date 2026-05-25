@@ -4,6 +4,7 @@ VERSION = 1
 PLATFORM = love.system.getOS()
 BUTTONS = require "objects.button" ()
 EXITLIB = require "objects.exit" ()
+CLOVE = require "libs.clove"
 
 
 local titles = {"DELTARUNE", "NUT DEALER", "ULTRA NEED", "DUAL ENTER", "ELDER TUNA", "RENTAL DUE", "TUNDRA EEL", "UN-ALTERED"}
@@ -201,7 +202,7 @@ function love.focus()
 	if scene and scene.focus then
 		scene:focus()
 	end
-	print(#scenestack)
+	-- print(#scenestack)
 end
 
 function love.keypressed(key)

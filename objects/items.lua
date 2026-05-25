@@ -1,33 +1,21 @@
-return function() local self = {}
+return function()
+---@class Items
+    local self = {}
     local manager = self
 
     self.items = {}
     self.step = require("objects.step")()
 
-    -- Retrieve an item by name or index
-    function self:getItem(nameOrIndex)
-        if type(nameOrIndex) == "number" then
-            return self.items[nameOrIndex]
-        elseif type(nameOrIndex) == "string" then
-            for _, item in ipairs(self.items) do
-                if item.name == nameOrIndex then
-                    return item
-                end
+    function self:loadItems()
+        local items = CLOVE.requireLib("assets/items", true)
+        for key,item in pairs(items) do
+            item.name = item.name or key
+            if item.enabled == nil then
+                item.enabled = true
             end
         end
-        return nil
-    end
 
-    -- Internal helper for adding multiple items
-    function self:_addItems(items)
-        for name, obj in pairs(items) do
-            self:addItem(name, obj)
-        end
-    end
-
-    -- Add multiple items
-    function self:addItems(items)
-        self:_addItems(items)
+        self.loadedItems = items
     end
 
     local function cloneTable(t)
@@ -42,8 +30,55 @@ return function() local self = {}
         return copy
     end
 
+    -- Retrieve an item by name or index
+---@param indexOrString number|string
+    function self:getItem(indexOrString)
+        if type(indexOrString) == "number" then
+            return self.items[indexOrString]
+        elseif type(indexOrString) == "string" then
+            for _, item in pairs(self.loadedItems) do
+                if item.name == indexOrString then
+                    return cloneTable(item)
+                end
+            end
+        end
+
+        return nil
+    end
+
+    -- Add multiple items
+---@param items table[]
+    function self:addItems(items)
+        for _, obj in pairs(items) do
+            local name = obj.name
+            self:addItem(name, obj)
+        end
+    end
+
+    -- *Override* Called when an item is removed by any means
+---@param item table
+	function self:removed(item)
+	end
+
+    -- *Override* Called when an item is used
+---@param item table
+	function self:used(item)
+	end
+
+    -- *Override* Called when an item is clicked
+---@param item table
+	function self:clicked(item)
+	end
+
+    -- *Override* Called when an item is consumed
+---@param item table
+	function self:consumed(item)
+	end
+
+---@param name string
+---@param obj table
     function self:addItem(name, obj)
-        local newObj = cloneTable(obj)
+        local newObj = obj
         local item = {
             name = name,
             object = newObj,
@@ -58,21 +93,21 @@ return function() local self = {}
                     if manager.removed then
                         manager:removed(item)
                     end
+
                     break
                 end
             end
         end
 
-        function item:use()
+        function item:use(soul, state)
             self.active = true
 
             if manager.used then
                 manager:used(self)
             end
 
-            -- use newObj (the actual instance), not obj
             if newObj.onclick then
-                if newObj.onclick(item) ~= false then
+                if newObj.onclick(newObj, soul, state) ~= false then
                     if manager.clicked then
                         manager:clicked(self)
                     end
@@ -95,6 +130,7 @@ return function() local self = {}
     end
 
     -- Remove an item (by name or index)
+---@param itemt string|number
     function self:removeItem(itemt)
         if type(itemt) == "string" then
             for i, item in ipairs(self.items) do
@@ -109,6 +145,8 @@ return function() local self = {}
     end
 
     -- Set active state of an item
+---@param itemt table|nil
+---@param state boolean|nil
     function self:setActive(itemt, state)
         local item = self:getItem(itemt)
         if item then
@@ -117,11 +155,13 @@ return function() local self = {}
     end
 
     -- Get all items (optionally enabled ones only)
+---@param onlyEnabled boolean|nil
     function self:getItems(onlyEnabled)
         if not onlyEnabled then
             return self.items
         end
         local enabled = {}
+        print(#self.items)
         for _, item in ipairs(self.items) do
             if item.enabled == true then
                 table.insert(enabled, item)
@@ -131,24 +171,31 @@ return function() local self = {}
     end
 
     -- Replace all items
+---@param items table
     function self:setItems(items)
         self.items = {}
-        self:_addItems(items)
+        self:addItems(items)
     end
 
     -- Update only active items
+---@param dt number
     function self:update(dt)
         self.step:update(dt)
     end
 
     function self.step:stepped()
         if not manager.items then return end
+
         for _, item in ipairs(manager.items) do
             if item.active and item.object.step then
                 item.object:step()
             end
         end
     end
+
+    -- *Override* Called when a step happens
+	function self:stepped()
+	end
 
     return self
 end

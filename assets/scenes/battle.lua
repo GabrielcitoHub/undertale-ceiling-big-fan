@@ -1,4 +1,6 @@
-return function() local self = {}
+return function()
+---@class BattleState
+    local self = {}
     local Fightbar = require "objects.fightbar"
     local Attack = require "objects.attack"
 
@@ -9,18 +11,25 @@ return function() local self = {}
     --[[ local soul2 = self.box:makesoul()
     soul2.color = {0, 0, 1} ]]
 
+---@type Soul[]
     self.souls = {self.box:makesoul()}
+---@type Soul[]
     self.unloadedSouls = {}
     self.soulsActions = {}
 
-    for i = 1, 49 do
-        local rngSoul = self.box:makesoul()
-        rngSoul.color = {love.math.random(1,100) / 100, love.math.random(1,100) / 100, love.math.random(1,100) / 100}
-        table.insert(self.souls, rngSoul)
+    local soulsTesting = false
+
+    if soulsTesting then
+        for i = 1, 2 do
+            local rngSoul = self.box:makesoul()
+            rngSoul.color = {love.math.random(1,100) / 100, love.math.random(1,100) / 100, love.math.random(1,100) / 100}
+            table.insert(self.souls, rngSoul)
+        end
     end
 
     self.soul = self.souls[1]
 
+---@param func function
     function self:forSouls(func)
         local souls = self.souls
         if not souls then return end
@@ -45,10 +54,13 @@ return function() local self = {}
         end
     end
 
+---@param func function
     function self:queueSoulsAction(func)
         table.insert(self.soulsActions, func)
     end
 
+---@param i number
+---@param soul Soul
     function self:runQueueActions(i, soul)
         for _, func in pairs(self.soulsActions) do
             func(i,soul)
@@ -62,12 +74,16 @@ return function() local self = {}
     self.soulname = require "objects.soulname" (self.soul, 30, 400)
     self.dialogue = require "objects.dialogue" (nil, "fnt_default_big", 52, 272)
 
+---@type HealthMeter[]
     self.healthmeters = {}
     self.healthpositions = {
         275,
         475,
     }
-    self:forSouls(function(soul, i)
+    self:forSouls(
+---@param soul Soul
+---@param i number
+    function(soul, i)
         local healthmeter = require "objects.healthmeter" (self.healthpositions[i], 400, nil, nil, soul)
         table.insert(self.healthmeters, healthmeter)
     end)
@@ -76,19 +92,24 @@ return function() local self = {}
     self.hpmeter = self.healthmeter
 
     self.items = require "objects.items" ()
+    self.items:loadItems()
     self.debug = require "objects.debug" ()
     self.battlebg = require "objects.image" (IMAGE "battle_bg", 15, 9)
     self.fightbar = nil
     self.opponent = nil
+---@type Opponent[]
     self.opponents = {}
 
-    self:forSouls(function(soul)
+    self:forSouls(
+---@param soul Soul
+    function(soul)
         soul.active = true
         soul.locked = true
         soul.can_gameover = false
         -- soul.can_flee = false
     end)
 
+---@type Attack[]
     self.attacks = {}
     self.buttons = {}
     self.events = {}
@@ -120,81 +141,18 @@ return function() local self = {}
 
     if DEBUG then
         local items = {
-            TESTITEM = {
-                onclick = function()
-                    PLAYSOUND "snd_hurt1.wav"
-                    self.soul.hp = self.soul.hp - 1
-
-                    return false
-                end,
-
-                consume = function()
-                    return false
-                end
-            },
-
-            HEALITEM = {
-                onclick = function()
-                    PLAYSOUND "snd_heal_c.wav"
-                    self.soul.hp = math.min(self.soul.maxhp, self.soul.hp + 20)
-                    self:endturn({
-                        "* Tastes like debug code...",
-                        "* Some health was recovered."
-                    })
-
-                    return false
-                end,
-            },
-
-            ACID = {
-                onclick = function(item)
-                    PLAYSOUND "snd_heal_c.wav"
-                    self.soul.hp = self.soul.maxhp
-                end,
-
-                consume = function(item)
-                    item.enabled = false
-
-                    return false
-                end,
-
-                step = function()
-                    local state = scene:getState()
-                    if state == "menu" then
-                        if self.soul.hp > 0 then
-                            PLAYSOUND "snd_hurt1.wav"
-                            self.soul.hp = self.soul.hp - 1
-                        end
-                    end
-                end,
-            },
-            ["Special Acid"] = {
-                consumeitem = true,
-                onclick = function()
-                    PLAYSOUND "snd_laz.wav"
-
-                    for i,opp in pairs(self.opponents) do
-                        if opp.hp < 10 then
-                            opp.hp = opp.hp - 10
-                            self.consumeitem = true
-                        else
-                            opp.hp = opp.hp - opp.maxhp / 10
-                            self.consumeitem = false
-                        end
-                    end
-
-                    self:postattack()
-                end,
-
-                consume = function()
-                    return self.consumeitem
-                end
-            }
+            self.items:getItem("TESTITEM"),
+            self.items:getItem("TESTITEM"),
+            self.items:getItem("HEALITEM"),
+            self.items:getItem("ACID"),
+            self.items:getItem("Special Acid"),
+            self.items:getItem("TESTEST"),
         }
+        self.items:addItems(items)
 
-        for _ = 1,4 do
-            self.items:addItems(items)
-        end
+        -- for _ = 1,4 do
+        --     self.items:addItems(items)
+        -- end
     end
 
     function self:getState()
@@ -215,6 +173,7 @@ return function() local self = {}
         end
     end
     
+---@param turncount number
     function self:onenemyturn(turncount)
         self:endattack("* Smells like flavor text")
     end
@@ -230,6 +189,7 @@ return function() local self = {}
         end
     end
 
+---@param opponent Opponent
 	function self:postattack(opponent)
 		if self.fightbar then
 			self.fightbar.fadeanim = 1
@@ -265,6 +225,7 @@ return function() local self = {}
 		end
 	end
 
+---@param dialogue Dialogue|nil
     function self:endturn(dialogue)
         self.turns = self.turns + 1
         self.dialogue:settext("")
@@ -278,6 +239,10 @@ return function() local self = {}
         self:nextdialogue()
     end
 
+---@param name string|nil
+---@param img love.image|string|nil
+---@param hp number|nil
+---@param options table|nil
     function self:makeopponent(name, img, hp, options)
         local opponent = require "objects.opponent" (name or "Unknown Enemy", (#self.opponents+1) / (#self.opponents + 2) * 640, 240, img or "dummy", hp or 30, options or {})
         self.opponents[#self.opponents+1] = opponent
@@ -285,10 +250,21 @@ return function() local self = {}
         return opponent
     end
 
+---@param x number
+---@param y number
+---@param sprite love.Image|string|nil
+---@param spriteselected love.Image|string|nil
+---@param color table|nil
+---@param colorselected table|nil
+---@param soulx number|nil
+---@param souly number|nil
     function self:makebutton(x, y, sprite, spriteselected, color, colorselected, soulx, souly)
-        self.buttons[#self.buttons+1] = require "objects.battlebutton" (x, y, color, colorselected, sprite, spriteselected, soulx, souly)
+        local index = #self.buttons + 1
+        self.buttons[index] = require "objects.battlebutton" (x, y, color, colorselected, sprite, spriteselected, soulx, souly)
+        return self.buttons[index]
     end
 
+---@param func function
     function self:makeopponentselectors(func)
         local options = {}
 
@@ -355,6 +331,7 @@ return function() local self = {}
             end)
         end)
 
+        local state = self
         self:makebutton(345, 432, "item_button", "item_button_selected", nil, nil, function ()
             if self.items then
                 local itemsChoices = {}
@@ -365,10 +342,10 @@ return function() local self = {}
                         menu = "item",
                         text = "* " .. name,
                         onclick = function()
-                            item:use()
+                            item:use(state.soul, state)
                         end
                     }
-                    table.insert(itemsChoices, #itemsChoices+1, itemDialogue)
+                    table.insert(itemsChoices, #itemsChoices + 1, itemDialogue)
                 end
 
                 self.dialogue:makechoices(itemsChoices, self.soul, 2)
@@ -426,13 +403,16 @@ return function() local self = {}
         end)
     end
 
+---@param item table
     function self.items:used(item)
     end
 
+---@param item table
     function self.items:clicked(item)
         scene:endturn()
     end
 
+---@param mus love.Source
     function self:setmusic(mus)
         self.music:stop()
         self.music = MUSIC(mus)
@@ -451,12 +431,16 @@ return function() local self = {}
         POPSCENE()
     end
 
+---@param dt number
     function self:update(dt)
         self.items:update(dt)
 
         self.aliveSouls = {}
         -- Update souls
-        self:forSouls(function(soul, i)
+        self:forSouls(
+---@param soul Soul
+---@param i number
+        function(soul, i)
             if soul.hp > 0 then
                 table.insert(self.aliveSouls, soul)
                 -- On menu button selection
@@ -497,7 +481,7 @@ return function() local self = {}
                 -- Souls attacks collision detection
                 for index, attack in pairs(self.attacks) do
                     if not self.attacksUpdated then
-                        attack:update(self)
+                        attack:update(self, dt)
                     end
 
                     if not attack.disabled then
@@ -562,7 +546,7 @@ return function() local self = {}
             healthmeter:update()
         end
 
-        self.box:update()
+        self.box:update(dt)
 
         if not self.box.resizing then
             for index, value in ipairs(self.events) do
@@ -602,7 +586,9 @@ return function() local self = {}
 
     function self:draw()
         local cond = #self.aliveSouls <= 0
-        self:forSouls(function(soul)
+        self:forSouls(
+---@param soul Soul
+        function(soul)
             if cond then
                 soul:draw()
             end
@@ -633,7 +619,9 @@ return function() local self = {}
         end
 
         if not cond then
-            self:forSouls(function(soul)
+            self:forSouls(
+---@param soul Soul
+            function(soul)
                 if soul.active then
                     soul:draw()
                 end
@@ -657,7 +645,9 @@ return function() local self = {}
         love.graphics.outline(self.box, {1, 1, 1})
         love.graphics.outline(self.box, {1, 0, 1}, 0, 0, 8)
 
-        self:forSouls(function(soul) 
+        self:forSouls(
+---@param soul Soul
+        function(soul) 
             love.graphics.outline(soul, {0, 1, 1}, -0.5, -0.5)
         end)
 
@@ -707,6 +697,8 @@ return function() local self = {}
         love.graphics.print("State: "..self:getState(), 0, 64+64)
     end
 
+    ---@return Attack|AttackConstructor
+    ---@param options table
     function self:makebullet(options)
         local image = IMAGE(options.image or "attack_default")
         local width = options.width or image:getWidth()
@@ -718,21 +710,29 @@ return function() local self = {}
         return Attack(width, height, image, spawned, update, draw)
     end
 
+    -- local t = self:makebullet()
+
     function self:queue(event)
         self.events[#self.events+1] = {queuetime, event}
     end
 
+---@param waittime number
     function self:wait(waittime)
-        self:delayqueue(waittime*60)
+        self:delayqueue(waittime * 60)
     end
 
+---@param waittime number
     function self:delayqueue(waittime)
         if queuetime < time then
             queuetime = time
         end
+
         queuetime = queuetime + waittime
     end
 
+---@param bulletconstructor AttackConstructor
+---@param x number
+---@param y number
     function self:queuespawn(bulletconstructor, x, y, ...)
         local args = {...}
         self:queue(function()
@@ -745,6 +745,9 @@ return function() local self = {}
         queuetime = time
 	end
 
+---@param bulletconstructor AttackConstructor
+---@param x number
+---@param y number
     function self:spawn(bulletconstructor, x, y, ...)
         local bullet = bulletconstructor()
         attackid = attackid + 1
@@ -755,11 +758,13 @@ return function() local self = {}
         bullet:spawned(...)
     end
 
+---@param attack Attack
     function self:destroy(attack)
         self.attacks[attackIDS[attack]] = nil
         attackIDS[attack] = nil
     end
 
+---@param flavortext string|nil
     function self:endattack(flavortext)
         -- time = 0
         queuetime = time
@@ -772,20 +777,28 @@ return function() local self = {}
         attackmode = false
         self:forSouls(function(soul, i)
             soul.active = true
+            soul.locked = true
         end)
     end
 
+---@param func function
+---@param width number|nil
+---@param height number|nil
+---@param instant boolean|nil
     function self:startattack(func, width, height, instant)
         -- time = 0
         queuetime = time
         self.attacks = {}
         attackIDS = {}
-        self.soul.active = false
+        -- self.soul.locked = false
         self.events = {
             {0, function(self)
                 self.box:makesoul(self.souls)
+---@param soul Soul
+---@param i number
                 self:forSouls(function(soul, i)
                     soul.active = true
+                    soul.locked = false
                 end)
             end},
             {0, func}

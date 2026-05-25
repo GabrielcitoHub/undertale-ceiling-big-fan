@@ -1,4 +1,12 @@
-return function(text, font, x, y, sound, texteffect) local self = {}
+---@param text string|nil
+---@param font string|nil
+---@param x number|nil
+---@param y number|nil
+---@param sound love.Source|nil
+---@param texteffect function|nil
+return function(text, font, x, y, sound, texteffect)
+---@class Dialogue
+	local self = {}
 	self.text = ""
 	self.texteffect = texteffect or function (x, y)
 		if math.random() < 0.005 then
@@ -29,8 +37,13 @@ return function(text, font, x, y, sound, texteffect) local self = {}
 		[";"] = 4,
 		[","] = 4,
 	}
+
+---@param menu table
+---@param soul Soul
+---@param cols number|nil
+---@param rows number|nil
 	function self:makechoices(menu, soul, cols, rows)
-		if #menu == 0 then return end
+		if #menu == 0 then return false end
 		self.menus[#self.menus+1] = menu
 		menu.columns = cols or 1
 		menu.options = #menu
@@ -42,6 +55,8 @@ return function(text, font, x, y, sound, texteffect) local self = {}
 		self.justswitched = true
 		return true
 	end
+
+---@param value number
 	function self:removechoice(value)
 		for i, m in pairs(self.menus) do
 			for optkey, opt in pairs(m) do
@@ -53,15 +68,19 @@ return function(text, font, x, y, sound, texteffect) local self = {}
 		end
 		return false
 	end
-	local function emptydialog()
+
+	-- *Override* Called when pressing a nil item
+	function self:emptydialog()
 		print("I should fix this bug, but instead i turned it into a feature :D")
 	end
+
 	function self:update()
 		if not self.cantskip then
 			if ISPRESSED "CANCEL" and self.text ~= self.targettext then
 				self.text = self.targettext
 			end
 		end
+
 		if #self.menus <= 0 then
 			timer = timer + 1
 			if timer > self.speed then
@@ -81,12 +100,14 @@ return function(text, font, x, y, sound, texteffect) local self = {}
 			if menu.rows then
 				maxperpage = menu.columns * menu.rows
 			end
+
 			local pageoptions = math.min(maxperpage, menu.options - maxperpage * (menu.page - 1))
 			local maxpages = math.ceil(menu.options / maxperpage)
 			local optionindex = menu.option + (menu.page - 1) * maxperpage
 			local option = menu[optionindex]
 			local row = math.ceil(menu.option/menu.columns)-1
 			local column = (menu.option-1)%menu.columns
+
 			if ISPRESSED "RIGHT" then
 				menu.option = menu.option + 1
 				local newrow = math.ceil(menu.option/menu.columns)-1
@@ -94,8 +115,10 @@ return function(text, font, x, y, sound, texteffect) local self = {}
 				if menu.page > maxpages then
 					menu.page = 1
 				end
+
 				pageoptions = math.min(maxperpage, menu.options - maxperpage * (menu.page - 1))
 				menu.option = menu.option + (row - newrow) * menu.columns
+				
 				if menu.option > pageoptions then
 					menu.option = menu.option - menu.columns
 					if row == 0 then
@@ -105,11 +128,14 @@ return function(text, font, x, y, sound, texteffect) local self = {}
 						end
 					end
 				end
+
 				if menu.option < 1 then
 					menu.option = 1
 				end
+
 				PLAYSOUND "snd_squeak.wav"
 			end
+
 			if ISPRESSED "LEFT" then
 				menu.option = menu.option - 1
 				local newrow = math.ceil(menu.option/menu.columns)-1
@@ -117,26 +143,34 @@ return function(text, font, x, y, sound, texteffect) local self = {}
 				if menu.page < 1 then
 					menu.page = maxpages
 				end
+
 				pageoptions = math.min(maxperpage, menu.options - maxperpage * (menu.page - 1))
 				menu.option = menu.option + (row - newrow) * menu.columns
+
 				if menu.option > pageoptions then
 					menu.option = menu.option - menu.columns
 				end
+
 				if menu.option > pageoptions then
 					menu.option = pageoptions
 				end
+
 				if menu.option < 1 then
 					menu.option = 1
 				end
+
 				PLAYSOUND "snd_squeak.wav"
 			end
+
 			if ISPRESSED "DOWN" then
 				menu.option = menu.option + menu.columns
 				if menu.option > pageoptions then
 					menu.option = menu.option - (row + 1) * menu.columns
 				end
+
 				PLAYSOUND "snd_squeak.wav"
 			end
+
 			if ISPRESSED "UP" then
 				menu.option = menu.option - menu.columns
 				if menu.option < 1 then
@@ -145,31 +179,43 @@ return function(text, font, x, y, sound, texteffect) local self = {}
 						menu.option = menu.option - menu.columns
 					end
 				end
+
 				PLAYSOUND "snd_squeak.wav"
 			end
+
+			-- print(not self.justswitched)
 			if ISPRESSED "SELECT" and not self.justswitched then
+				print("select")
 				if option then
 					PLAYSOUND "snd_select.wav"
 					if option.onclick then
 						option.onclick(optionindex)
 					end
 				else
-					emptydialog()
+					self:emptydialog()
 				end
 			end
+
 			if menu.soul then
 				menu.soul.x = self.x + column * self.columnspacing + 24
 				menu.soul.y = self.y + row * self.rowspacing + 14
 			end
+
 			if ISPRESSED "CANCEL" and not self.justswitched then
 				self.menus[#self.menus] = nil
 				PLAYSOUND "snd_squeak.wav"
 			end
 		end
+
 		self.justswitched = false
 	end
+
+---@param text string
+---@param x number
+---@param y number
 	function self:print(text, x, y)
 		love.graphics.setFont(self.font)
+
 		local textx = x
 		local texty = y
 		for i = 1, #text do
@@ -187,20 +233,26 @@ return function(text, font, x, y, sound, texteffect) local self = {}
 			end
 		end
 	end
+
 	function self:draw()
 		local x,y = self.x,self.y
 		if self.potrait and self.targettext ~= "" and self.targettext ~= nil then
 			love.graphics.draw(self.potrait,x,y,0,2,2)
 			x = x + self.potrait:getWidth() + 48
 		end
+
 		self:print(self.text, x, y)
+
 		if #self.menus > 0 then
 			local menu = self.menus[#self.menus]
 			local maxperpage = menu.options
+
 			if menu.rows then
 				maxperpage = menu.columns * menu.rows
 			end
+
 			local pageoptions = math.min(maxperpage, menu.options - maxperpage * (menu.page - 1))
+
 			for i = 1, pageoptions do
 				local row = math.ceil(i/menu.columns)-1
 				local column = (i-1)%menu.columns
@@ -208,22 +260,31 @@ return function(text, font, x, y, sound, texteffect) local self = {}
 				love.graphics.setColor(option.color or {1, 1, 1})
 				self:print(option.text, self.x + 48 + column * self.columnspacing, self.y + row * self.rowspacing)
 			end
+
 			love.graphics.setColor(1, 1, 1)
+
 			if menu.rows then
 				self:print("  PAGE "..menu.page, self.x + 48 + self.columnspacing, self.y + self.rowspacing * 2)
 			end
 		end
 	end
+
 	function self:skip()
 		self.text = self.targettext
 	end
+
+---@param newtext string
+---@param cantskip boolean|nil
 	function self:settext(newtext, cantskip)
+		cantskip = cantskip or false
 		self.menus = {}
 		self.cantskip = cantskip
 		self.text = ""
 		timer = 0
 		self.targettext = newtext
 	end
+
+---@param speaker string
 	function self:setspeaker(speaker)
 		self.speaker = speaker
 		self:setpotrait()
@@ -236,6 +297,8 @@ return function(text, font, x, y, sound, texteffect) local self = {}
 			end
 		end
 	end
+
+---@param face string|nil
 	function self:setpotrait(face)
 		face = face or "normal"
 		local speaker = self.speaker

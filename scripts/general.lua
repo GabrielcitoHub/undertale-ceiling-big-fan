@@ -12,6 +12,7 @@ function CLEARCACHE()
 	music = {}
 end
 
+---@param path string
 ---@return love.Image
 function ABSIMAGE(path)
 	if images[path] == nil then
@@ -26,11 +27,13 @@ function ABSIMAGE(path)
 	return images[path]
 end
 
+---@param path string
 ---@return love.Image
 function IMAGE(path)
 	return ABSIMAGE("assets/sprites/"..path)
 end
 
+---@param path string
 ---@return love.ImageData
 function ABSIMAGEDATA(path)
 	if imagesdata[path] == nil then
@@ -44,21 +47,24 @@ function ABSIMAGEDATA(path)
 	return imagesdata[path]
 end
 
+---@param path string
 ---@return love.ImageData
 function IMAGEDATA(path)
 	return ABSIMAGEDATA("assets/sprites/"..path)
 end
 
+---@param path string
 ---@return love.Font
 function FONT(path)
 	if not fonts[path] then
-		local data = love.filesystem.read("string", "assets/sprites/"..path..".txt")
-		fonts[path] = love.graphics.newImageFont("assets/sprites/"..path..".png", data, 1)
+		local data = love.filesystem.read("string", "assets/sprites/fonts/"..path..".txt")
+		fonts[path] = love.graphics.newImageFont("assets/sprites/fonts/"..path..".png", data, 1)
 	end
 
 	return fonts[path]
 end
 
+---@param path string
 ---@return love.Source
 function SOUND(path)
 	if not sounds[path] then
@@ -68,19 +74,33 @@ function SOUND(path)
 	return sounds[path]
 end
 
+---@param path string|love.Source
 function PLAYSOUND(path)
-	local sound = SOUND(path)
+	local sound
+	if type(path) == "string" then
+		sound = SOUND(path)
+	else
+		sound = path
+	end
+
 	sound:stop()
 	sound:seek(0)
 	sound:play()
 end
 
+---@param path string|love.Source
 function STOPSOUND(path)
-	local sound = SOUND(path)
+	local sound
+	if type(path) == "string" then
+		sound = SOUND(path)
+	else
+		sound = path
+	end
 	sound:stop()
 	sound:seek(0)
 end
 
+---@param path string
 ---@return love.Source
 function MUSIC(path)
 	if not music[path] then
@@ -88,4 +108,31 @@ function MUSIC(path)
 	end
 
 	return music[path]
+end
+
+---@param path string|love.Source
+function PLAYMUSIC(path)
+	local music
+	if type(path) == "string" then
+		music = MUSIC(path)
+	else
+		music = path
+	end
+
+	music:stop()
+	music:seek(0)
+	music:play()
+	music:setLooping(true)
+end
+
+---@param path string|love.Source
+function STOPMUSIC(path)
+	local music
+	if type(path) == "string" then
+		music = MUSIC(path)
+	else
+		music = path
+	end
+	music:stop()
+	music:seek(0)
 end
