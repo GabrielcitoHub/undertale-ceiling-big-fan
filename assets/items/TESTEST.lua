@@ -1,8 +1,8 @@
 local self = {}
 
-function self:onclick(soul, item, state)
+function self:onclick(soul, state)
     soul = soul or {}
-    item = item or {}
+    local item = self or {}
     state = state or {}
     print(soul.name or "nosoul")
     print(item.name or "noitem")

@@ -1,6 +1,8 @@
 local self = {}
 
-function self:onclick(soul, item, state)
+---@param soul Soul
+---@param state BattleState
+function self:onclick(soul, state)
     PLAYSOUND "snd_heal_c.wav"
     soul.hp = math.min(soul.maxhp, soul.hp + 20)
     state:endturn({

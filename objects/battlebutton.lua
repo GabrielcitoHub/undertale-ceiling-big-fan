@@ -39,7 +39,7 @@ return function(x, y, col, highlightcol, spr, sprselected, onclick, sx, sy) loca
             end
 
             if soulsAmount > 1 then
-                if self.hover and ISPRESSED "SELECT" and not soul.queued then -- TO-DO: Replace "ISPRESSED "SELECT" with soul keybinds
+                if self.hover and ISPRESSED "SELECT" then -- TO-DO: Replace "ISPRESSED "SELECT" with soul keybinds
                     PLAYSOUND "snd_select.wav"
 
                     if self:isOver(soul) then

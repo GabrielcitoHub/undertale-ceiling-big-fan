@@ -107,7 +107,7 @@ return function()
             end
 
             if newObj.onclick then
-                if newObj.onclick(newObj, soul, state) ~= false then
+                if newObj:onclick(soul, state) ~= false then
                     if manager.clicked then
                         manager:clicked(self)
                     end

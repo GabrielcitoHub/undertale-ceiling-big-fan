@@ -83,9 +83,9 @@ function PLAYSOUND(path)
 		sound = path
 	end
 
-	sound:stop()
+	love.audio.stop(sound)
 	sound:seek(0)
-	sound:play()
+	love.audio.play(sound)
 end
 
 ---@param path string|love.Source
@@ -96,7 +96,7 @@ function STOPSOUND(path)
 	else
 		sound = path
 	end
-	sound:stop()
+	love.audio.stop(sound)
 	sound:seek(0)
 end
 
@@ -119,9 +119,9 @@ function PLAYMUSIC(path)
 		music = path
 	end
 
-	music:stop()
+	love.audio.stop(music)
 	music:seek(0)
-	music:play()
+	love.audio.play(music)
 	music:setLooping(true)
 end
 
@@ -133,6 +133,6 @@ function STOPMUSIC(path)
 	else
 		music = path
 	end
-	music:stop()
+	love.audio.stop(music)
 	music:seek(0)
 end

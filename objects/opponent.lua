@@ -4,6 +4,9 @@ return function(name, x, y, img, hp, options)
     local self = {}
     self.x = x
     self.y = y
+    self.scale = 2
+    self.scaleX = self.scale
+    self.scaleY = self.scale
     self.spared = false
 	self.killed = false
     self.name = name
@@ -134,7 +137,7 @@ return function(name, x, y, img, hp, options)
             --love.graphics.setColor(1, 0, 0)
         end
 
-        if not self.hidden then love.graphics.draw(self.image, self.x - self.image:getWidth() + self.shudder, self.y - self.image:getHeight() * 2, 0, 2, 2) end
+        if not self.hidden then love.graphics.draw(self.image, self.x - self.image:getWidth() + self.shudder, self.y - self.image:getHeight() * 2, 0, self.scaleX, self.scaleY) end
 
         love.graphics.setColor(1, 1, 1, 1)
 

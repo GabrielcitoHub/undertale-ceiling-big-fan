@@ -8,11 +8,13 @@ return function()
     self.music = MUSIC "mus_prebattle1.ogg"
     self.box = require "objects.battlebox" (32, 250, 576, 140)
 
-    --[[ local soul2 = self.box:makesoul()
-    soul2.color = {0, 0, 1} ]]
-
 ---@type Soul[]
     self.souls = {self.box:makesoul()}
+
+    --[[ local soul2 = self.box:makesoul()
+    soul2.color = {0, 0, 1}
+    table.insert(self.souls, soul2) ]]
+    
 ---@type Soul[]
     self.unloadedSouls = {}
     self.soulsActions = {}
@@ -20,7 +22,7 @@ return function()
     local soulsTesting = false
 
     if soulsTesting then
-        for i = 1, 2 do
+        for i = 1, 20 do
             local rngSoul = self.box:makesoul()
             rngSoul.color = {love.math.random(1,100) / 100, love.math.random(1,100) / 100, love.math.random(1,100) / 100}
             table.insert(self.souls, rngSoul)
@@ -138,16 +140,25 @@ return function()
     local queuetime = 0
     local attackmode = false
     local attackIDS = {}
+    local yum = true
 
     if DEBUG then
         local items = {
             self.items:getItem("TESTITEM"),
-            self.items:getItem("TESTITEM"),
             self.items:getItem("HEALITEM"),
+            self.items:getItem("ACID"),
+            self.items:getItem("ACID"),
             self.items:getItem("ACID"),
             self.items:getItem("Special Acid"),
             self.items:getItem("TESTEST"),
         }
+
+        if yum then
+            items = {}
+            for _ = 1,6 do
+                table.insert(items, self.items:getItem("ACID"))
+            end
+        end
         self.items:addItems(items)
 
         -- for _ = 1,4 do
@@ -157,7 +168,7 @@ return function()
 
     function self:getState()
         if not self.soul.locked then
-            if self.flee then
+            if self.fleed then
                 return "flee"
             elseif self.battleisover then
                 return "win"
@@ -393,7 +404,8 @@ return function()
                             self.dialogue:skip()
                             self.soul:flee()
                             self.soul.locked = false
-                            self.flee = true
+                            self.soul.fleed = true
+                            self.fleed = true
                         else
                             self:endturn()
                         end
@@ -424,7 +436,7 @@ return function()
     self.music:setLooping(true)
 
     -- *override* Called when the battlefield is updated
-    function self:onupdate() end
+    function self:onupdate(dt) end
 
     -- *override* Called when the battle ends
     function self:onBattleEnd()
@@ -511,7 +523,7 @@ return function()
         self.attacksUpdated = false
         local aliveSoulsCount = #self.aliveSouls
         if aliveSoulsCount <= 0 then
-            local deadSoul = self.last_hit
+            local deadSoul = self.last_hit or self.souls[1] -- TO-DO: This may cause issues with multiple souls, think of way to fix asap
             deadSoul.can_gameover = true
             return
         end
@@ -535,12 +547,12 @@ return function()
         end
 
 		if self.fightbar then
-			if self.fightbar:update() == false then
+			if self.fightbar:update(dt) == false then
 				self.fightbar = nil
 			end
 		end
 
-		self.dialogue:update()
+		self.dialogue:update(dt)
 
         for _,healthmeter in ipairs(self.healthmeters) do
             healthmeter:update()
@@ -572,7 +584,7 @@ return function()
             end
         end
 
-        self:onupdate()
+        self:onupdate(dt)
         self.debug:update(dt)
     end
 
@@ -695,6 +707,7 @@ return function()
         love.graphics.print("StepTime: "..self.items.step.steptime, 0, 64+32)
         love.graphics.print("Step: "..tostring(self.items.step.step), 0, 64+32+16)
         love.graphics.print("State: "..self:getState(), 0, 64+64)
+        love.graphics.print("IFrames: "..self.soul.iframes, 0, 64+64+16)
     end
 
     ---@return Attack|AttackConstructor

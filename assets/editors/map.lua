@@ -267,9 +267,11 @@ return function() local self = {}
         love.graphics.translate(-self.camera.x, -self.camera.y)
         love.graphics.setLineWidth(1 / self.camera.zoom)
 
+        local alphaStart = 0.2
+
         for gx = startGX, endGX do
             for gy = startGY, endGY do
-                local alpha = tileAlpha(gx + 1, gy + 1)
+                local alpha = tileAlpha(gx + alphaStart, gy + alphaStart)
                 love.graphics.setColor(0.7, 0.7, 0.7, alpha)
 
                 local x = gx * self.gridSize
@@ -328,6 +330,53 @@ return function() local self = {}
                 end
             end
         end
+        love.graphics.pop()
+    end
+
+    local function drawTileCursorPreview()
+        if self.mode ~= 1 then return end
+        if #self.globalTiles == 0 then return end
+
+        local gx, gy = worldToGrid(self.mouse.wx, self.mouse.wy)
+
+        -- only draw inside the map
+        if gx < 1 or gy < 1 or gx > self.map.width or gy > self.map.height then
+            return
+        end
+
+        local entry = self.globalTiles[self.globalIndex]
+        if not entry or not entry.img or not entry.quad then return end
+
+        love.graphics.push()
+        love.graphics.translate(-self.camera.x * self.camera.zoom, -self.camera.y * self.camera.zoom)
+        love.graphics.scale(self.camera.zoom, self.camera.zoom)
+
+        -- preview transparency
+        love.graphics.setColor(1, 1, 1, 1)
+
+        local sx = self.gridSize / self.tileSize
+        local sy = self.gridSize / self.tileSize
+
+        love.graphics.draw(
+            entry.img,
+            entry.quad,
+            (gx - 1) * self.gridSize,
+            (gy - 1) * self.gridSize,
+            0,
+            sx,
+            sy
+        )
+
+        -- -- optional outline
+        -- love.graphics.setColor(1, 1, 0, 0.8)
+        -- love.graphics.rectangle(
+        --     "line",
+        --     (gx - 1) * self.gridSize,
+        --     (gy - 1) * self.gridSize,
+        --     self.gridSize,
+        --     self.gridSize
+        -- )
+
         love.graphics.pop()
     end
 
@@ -646,6 +695,7 @@ return function() local self = {}
         love.graphics.clear(0.08, 0.08, 0.09)
         drawGrid()
         drawTiles()
+        drawTileCursorPreview()
         drawRooms()
         drawShapes()
         drawObjects()

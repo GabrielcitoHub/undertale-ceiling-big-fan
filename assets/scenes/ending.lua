@@ -40,7 +40,7 @@ return function(endingtext,intro) local self = {}
     function self:onupdate(dt) end
 
     function self:update(dt)
-        self.dialogue:update()
+        self.dialogue:update(dt)
         self.queue:update(dt)
 
         if ISPRESSED "CANCEL" then

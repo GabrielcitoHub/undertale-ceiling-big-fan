@@ -80,7 +80,7 @@ return function()
             self:onStoryEnd(true)
             return
         end
-        self.dialogue:update()
+        self.dialogue:update(dt)
 
         local t = self.sound:tell("seconds")
 

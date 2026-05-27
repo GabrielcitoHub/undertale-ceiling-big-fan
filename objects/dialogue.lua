@@ -74,7 +74,8 @@ return function(text, font, x, y, sound, texteffect)
 		print("I should fix this bug, but instead i turned it into a feature :D")
 	end
 
-	function self:update()
+	function self:update(dt)
+		-- dt = dt or DT or 1
 		if not self.cantskip then
 			if ISPRESSED "CANCEL" and self.text ~= self.targettext then
 				self.text = self.targettext
@@ -82,7 +83,7 @@ return function(text, font, x, y, sound, texteffect)
 		end
 
 		if #self.menus <= 0 then
-			timer = timer + 1
+			timer = timer + (1 * TARGETFPS) * dt
 			if timer > self.speed then
 				if self.text ~= self.targettext then
 					local char = self.targettext:sub(#self.text+1, #self.text+1)

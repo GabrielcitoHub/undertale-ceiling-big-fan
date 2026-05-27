@@ -1,7 +1,7 @@
 local self = {}
 
 self.consumeitem = true
-function self:onclick(soul, item, state)
+function self:onclick(soul, state)
     PLAYSOUND "snd_laz.wav"
 
     local opponents = state.opponents

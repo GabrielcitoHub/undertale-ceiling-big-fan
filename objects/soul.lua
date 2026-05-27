@@ -36,6 +36,7 @@ return function(x, y, maxhp, iframes)
 	self.shards = {}
 	self.active = true
 	self.locked = false
+	self.fleed = false
 	self.can_gameover = true
 	self.can_flee = true
 
@@ -63,32 +64,48 @@ return function(x, y, maxhp, iframes)
 		self:calcstats()
 	end
 
----@param bullet Attack
-	function self:takedamage(bullet)
-		if not (
-			self.x - self.width / 2 > bullet.x + bullet.width / 2
-			or
-			self.x + self.width / 2 < bullet.x - bullet.width / 2
-			or
-			self.y - self.height / 2 > bullet.y + bullet.height / 2
-			or
-			self.y + self.height / 2 < bullet.y - bullet.height / 2
-		) and self.iframes == 0 then
-			local hp = self.hp
-			local damage = (bullet.damage or 4)
+---@param damage number
+	function self:damage(damage, iframes)
+		if self.iframes > 0 then return false end
+		
+		damage = damage or 4
+		iframes = iframes or self.maxiframes
+		local hp = self.hp
 
-			if damage < hp then
-				self.hp = self.hp - damage
-			else
-				self.hp = 0
-			end
-
-			self.iframes = bullet.iframes or self.maxiframes
-			PLAYSOUND "snd_hurt1.wav"
-
-			return true
-		else
+		if hp <= 0 then
 			return false
+		end
+
+		if damage < hp then
+			self.hp = self.hp - damage
+		else
+			self.hp = 0
+		end
+
+		self.iframes = iframes
+		PLAYSOUND "snd_hurt1.wav"
+
+		return true
+	end
+
+---@param bullet Attack|number
+	function self:takedamage(bullet)
+		if type(bullet) == "number" then
+			self:damage(bullet)
+		else
+			if not (
+				self.x - self.width / 2 > bullet.x + bullet.width / 2
+				or
+				self.x + self.width / 2 < bullet.x - bullet.width / 2
+				or
+				self.y - self.height / 2 > bullet.y + bullet.height / 2
+				or
+				self.y + self.height / 2 < bullet.y - bullet.height / 2
+			) and self.iframes == 0 then
+				return self:damage(bullet.damage, bullet.iframes)
+			else
+				return false
+			end
 		end
 	end
 
@@ -129,9 +146,9 @@ return function(x, y, maxhp, iframes)
 		end
 
 		for index, shard in ipairs(self.shards) do
-			shard.x = shard.x + shard.xv
-			shard.y = shard.y + shard.yv
-			shard.yv = shard.yv + 0.1
+			shard.x = shard.x + (shard.xv * TARGETFPS) * dt
+			shard.y = shard.y + (shard.yv  * TARGETFPS) * dt
+			shard.yv = shard.yv + (0.1 * TARGETFPS) * dt
 		end
 
 		if old_deathTimer < 210 and self.deathtimer >= 210 and self.can_gameover then
@@ -152,9 +169,9 @@ return function(x, y, maxhp, iframes)
 		end
 	end
 
-	function self:updateFleeing()
+	function self:updateFleeing(dt)
 		if self.fleetimer > 0 then
-			self.fleetimer = self.fleetimer + 1
+			self.fleetimer = self.fleetimer + (1 * TARGETFPS) * dt
 			if self.fleetimer > 90 and self.can_flee then
 				POPSCENE()
 			end
@@ -186,9 +203,14 @@ return function(x, y, maxhp, iframes)
 		end
 	end
 
-	function self:updateIFrames()
+	function self:updateIFrames(dt)
 		if self.iframes > 0 then
-			self.iframes = self.iframes - 1
+			local change = (1 * TARGETFPS) * dt
+			if change < self.iframes then
+				self.iframes = self.iframes - change
+			else
+				self.iframes = 0
+			end
 		end
 	end
 
@@ -232,10 +254,10 @@ return function(x, y, maxhp, iframes)
 		self:updateImage()
 		if self.unloaded then return end
 
-		self:updateFleeing()
-		self:updateIFrames()
+		self:updateFleeing(dt)
+		self:updateIFrames(dt)
 
-		if self.active and not self.locked then
+		if self.active and not self.locked and not self.fleed then
 			self:updateMovement(dt)
 		end
 	end

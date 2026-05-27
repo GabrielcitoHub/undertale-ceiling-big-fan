@@ -20,18 +20,18 @@ return function(soul) local self = {}
 
     function self:update(dt)
         local old_t = self.timer
-        self.timer = self.timer + (1 * 60) * dt
+        self.timer = self.timer + (1 * TARGETFPS) * dt
 
         if self.fadeout then
             if self.fade > 0 then
-                self.fade = self.fade - (0.015 * 60) * dt
+                self.fade = self.fade - (0.015 * TARGETFPS) * dt
                 self.music:setVolume(self.fade)
             else
                 RELOAD()
             end
         else
             if self.fade < 1 then
-                self.fade = self.fade + 0.01
+                self.fade = self.fade + (0.01 * TARGETFPS) * dt
             else
                 self.fade = 1
             end
@@ -60,7 +60,7 @@ return function(soul) local self = {}
             end
         end
 
-        self.dialogue:update()
+        self.dialogue:update(dt)
     end
 
     function self:draw()
