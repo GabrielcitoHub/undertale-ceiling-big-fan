@@ -6,7 +6,7 @@ local controlrightalt
 love.wiimote = love.wiimote or {
 	---@param joystick number
 	getWiimote = function(joystick)
-		return false
+		return
 	end,
 }
 
@@ -25,18 +25,20 @@ if PLATFORM == "Wii" then
 	}
 elseif PLATFORM == "Android" then
 	local startX = 30
-	local startY = 50
+	local startY = 20
+	local offsetY = 60
+	local gamepadOffsetY = 55
 	CONTROLS = {
-		LEFT = BUTTONS:new("LEFT",startX,love.graphics:getHeight()-startY),
-		RIGHT = BUTTONS:new("RIGHT",startX+70,love.graphics:getHeight()-startY),
-		UP = BUTTONS:new("UP",startX+35,love.graphics:getHeight()-startY-20),
-		DOWN = BUTTONS:new("DOWN",startX+35,love.graphics:getHeight()-startY+20),
-		SELECT = BUTTONS:new("SELECT",love.graphics:getWidth()-startX-70,love.graphics:getHeight()-startY),
-		CANCEL = BUTTONS:new("CANCEL",love.graphics:getWidth()-startX-35,love.graphics:getHeight()-startY),
-		MENU = BUTTONS:new("MENU",love.graphics:getWidth()-startX,love.graphics:getHeight()-startY),
+		LEFT = BUTTONS:new("LEFT",startX,love.graphics:getHeight()-startY-offsetY-gamepadOffsetY),
+		RIGHT = BUTTONS:new("RIGHT",startX+110,love.graphics:getHeight()-startY-offsetY-gamepadOffsetY),
+		UP = BUTTONS:new("UP",startX+110/2,love.graphics:getHeight()-startY-offsetY-gamepadOffsetY-40),
+		DOWN = BUTTONS:new("DOWN",startX+110/2,love.graphics:getHeight()-startY-offsetY-gamepadOffsetY+40),
+		SELECT = BUTTONS:new("SELECT",love.graphics:getWidth()-startX-160,love.graphics:getHeight()-startY-offsetY),
+		CANCEL = BUTTONS:new("CANCEL",love.graphics:getWidth()-startX-80,love.graphics:getHeight()-startY-offsetY),
+		MENU = BUTTONS:new("MENU",love.graphics:getWidth()-startX,love.graphics:getHeight()-startY-offsetY),
 		EXIT = BUTTONS:new("EXIT",startX,startY),
-		EXTRA1 = BUTTONS:new("EXTRA1",startX+40,startY),
-		EXTRA2 = BUTTONS:new("EXTRA2",startX+80,startY)
+		EXTRA1 = BUTTONS:new("EXTRA1",startX+80,startY),
+		EXTRA2 = BUTTONS:new("EXTRA2",startX+160,startY)
 	}
 else
 	controlleftalt = {
@@ -93,11 +95,13 @@ end
 ---@return boolean|nil
 function TRIGGERPLATFORMBUTTON(platform, id, control)
 	if platform == "Wii" then
-		if love.wiimote then
+		if love.wiimote and type(control) == "table" and control.isDown then
 			local altl = CHECKALT(controlleftalt, id, control) if altl then return altl end
 			local altr = CHECKALT(controlrightalt, id, control) if altr then return altr end
 
 			return control:isDown()
+		elseif type(control) == "boolean" then
+			return control
 		else
 			return false
 		end
@@ -117,8 +121,8 @@ end
 function ISDOWN(id,joystick)
 	joystick = joystick or 1
 	if PLATFORM == "Wii" then
-		if love.wiimote then
-			local wiimote = love.wiimote.getWiimote(joystick)
+		local wiimote = love.wiimote.getWiimote(joystick)
+		if wiimote then
 			return TRIGGERPLATFORMBUTTON(PLATFORM, id, wiimote)
 		else
 			return TRIGGERPLATFORMBUTTON(love.system.getOS(), id)
@@ -137,8 +141,8 @@ end
 function ISPRESSED(id, joystick)
 	joystick = joystick or 1
 	if PLATFORM == "Wii" then
-		if love.wiimote then
-			local wiimote = love.wiimote.getWiimote(joystick)
+		local wiimote = love.wiimote.getWiimote(joystick)
+		if wiimote then
 			return not pressed[id] and TRIGGERPLATFORMBUTTON(PLATFORM, id, wiimote)
 		else
 			return not pressed[id] and TRIGGERPLATFORMBUTTON(love.system.getOS(), id)

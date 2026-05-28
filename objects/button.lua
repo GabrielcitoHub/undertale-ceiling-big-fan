@@ -7,8 +7,8 @@ return function()local self = {}
 ---@param height number|nil
 ---@return BUTTON
     function self:new(id,x,y,width,height)
-        width = width or 30
-        height = height or 30
+        width = width or 75
+        height = height or 75
         x = x or 0
         y = y or 0
 
@@ -105,15 +105,64 @@ return function()local self = {}
     function self:drawButton(button)
         love.graphics.setFont(FONT "fnt_default")
         love.graphics.setColor(1, 1, button.pressed and 0 or 1,button.pressed and 1 or 0.4)
-        love.graphics.rectangle("line", button.x, button.y, button.width, button.height)
-        love.graphics.print(button.id, button.x, button.y, 0, button.width / 45, button.height / 45)
+
+        local scaleX, scaleY = 1.4, 1.6
 
         if DEBUG then
-            love.graphics.print(tostring(button.pressed), button.x, button.y + 10, 0, button.width / 45, button.height / 45)
-            love.graphics.print(tostring(button.presses), button.x, button.y + 20, 0, button.width / 45, button.height / 45)
+            love.graphics.rectangle("line", button.x, button.y, button.width, button.height)
+            love.graphics.print(button.id, button.x, button.y, 0, button.width / 45, button.height / 45)
+            love.graphics.print(tostring(button.pressed), button.x, button.y + 20, 0, button.width / 45, button.height / 45)
+            love.graphics.print(tostring(button.presses), button.x, button.y + 40, 0, button.width / 45, button.height / 45)
+        else
+            local layout = IMAGE "mobile/layout"
+            love.graphics.draw(layout, button.x, button.y, 0, button.width / layout:getWidth(), button.height / layout:getHeight())
+
+            local id = string.lower(button.id)
+            local special = {
+                up = {
+                    id = "arrow",
+                    r = math.rad(-90),
+                    ox = 16,
+                },
+                down = {
+                    id = "arrow",
+                    r = math.rad(90),
+                    ox = -4,
+                    oy = 14,
+                },
+                left = {
+                    id = "arrow",
+                    r = math.rad(180),
+                    ox = 16,
+                    oy = 16,
+                },
+                right = {
+                    id = "arrow",
+                    r = 0,
+                }
+            }
+            
+---@diagnostic disable-next-line: cast-local-type
+            id = special[id] or id
+            local image
+            local r = 0
+            local ox = 0
+            local oy = 0
+            if not id.id then
+                image = IMAGE("mobile/" .. id)
+            else
+                image = IMAGE("mobile/" .. id.id)
+                r = id.r
+                ox = id.ox or ox
+                oy = id.oy or oy
+            end
+            
+            if image then
+                love.graphics.draw(image, button.x + layout:getWidth() - image:getWidth() / 2, button.y + layout:getHeight() - image:getHeight() / 2, r, scaleX, scaleY, ox * scaleX, oy * scaleY)
+            end
         end
 
-        love.graphics.setColor(1, 1, 1,1)
+        love.graphics.setColor(1, 1, 1, 1)
     end
 
     function self:drawbuttons()
